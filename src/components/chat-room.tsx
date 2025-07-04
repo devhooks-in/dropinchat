@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Shield, ShieldOff, Users, ArrowLeft } from 'lucide-react';
+import { Send, Shield, ShieldOff, Users, ArrowLeft, ClipboardCopy } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
 import { useToast } from '@/hooks/use-toast';
 
@@ -123,6 +123,14 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     setProfanityFilter(checked);
     localStorage.setItem('temptalk-profanity-filter', JSON.stringify(checked));
   };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    toast({
+      title: "Link Copied!",
+      description: "The room link has been copied to your clipboard.",
+    });
+  };
   
   const getInitials = (name: string) => name.charAt(0).toUpperCase();
 
@@ -141,21 +149,35 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             </div>
         </div>
         <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center space-x-2">
-                {profanityFilter ? <Shield className="h-5 w-5 text-primary" /> : <ShieldOff className="h-5 w-5 text-muted-foreground" />}
-                <Switch
-                  id="profanity-filter"
-                  checked={profanityFilter}
-                  onCheckedChange={handleFilterChange}
-                />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Toggle Profanity Filter</p>
-            </TooltipContent>
-          </Tooltip>
+            <div className="flex items-center space-x-4">
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={handleCopyLink}>
+                        <ClipboardCopy className="h-5 w-5" />
+                        <span className="sr-only">Copy Link</span>
+                    </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                    <p>Copy Room Link</p>
+                    </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                    <div className="flex items-center space-x-2">
+                        {profanityFilter ? <Shield className="h-5 w-5 text-primary" /> : <ShieldOff className="h-5 w-5 text-muted-foreground" />}
+                        <Switch
+                        id="profanity-filter"
+                        checked={profanityFilter}
+                        onCheckedChange={handleFilterChange}
+                        />
+                    </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                    <p>Toggle Profanity Filter</p>
+                    </TooltipContent>
+                </Tooltip>
+            </div>
         </TooltipProvider>
       </header>
       
