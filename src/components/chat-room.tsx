@@ -3,17 +3,15 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { useRouter } from 'next/navigation';
-import { filterProfanity } from '@/ai/flows/filter-profanity';
 import type { Message } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Shield, ShieldOff, Users, ArrowLeft, ClipboardCopy, MoreVertical, Eraser, Trash2 } from 'lucide-react';
+import { Send, Users, ArrowLeft, ClipboardCopy, MoreVertical, Eraser, Trash2, Pencil } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -42,7 +40,6 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [users, setUsers] = useState<string[]>([]);
   const [input, setInput] = useState('');
-  const [profanityFilter, setProfanityFilter] = useState(true);
   const socketRef = useRef<Socket | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isCreator, setIsCreator] = useState(false);
@@ -64,11 +61,6 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
       setUsername(storedName);
     } else {
       setIsNameModalOpen(true);
-    }
-
-    const storedFilter = localStorage.getItem('temptalk-profanity-filter');
-    if (storedFilter) {
-      setProfanityFilter(JSON.parse(storedFilter));
     }
   }, []);
 
@@ -111,10 +103,10 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     if (socket && username) {
       socket.emit('join-room', roomId, username);
 
-      socket.once('room-state', (data: { messages: Message[], users: string[], creatorName: string | null }) => {
+      socket.once('room-state', (data: { messages: Message[], users: string[], creatorId: string | null }) => {
         setMessages(data.messages);
         setUsers(data.users);
-        setIsCreator(data.creatorName === username);
+        setIsCreator(data.creatorId === socket.id);
       });
     }
   }, [roomId, username]);
@@ -124,6 +116,9 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   }, [messages, scrollToBottom]);
 
   const handleNameSubmit = (name: string) => {
+    if (username) { // This is a name change
+      socketRef.current?.emit('change-name', roomId, name);
+    }
     setUsername(name);
     localStorage.setItem('temptalk-username', name);
     setIsNameModalOpen(false);
@@ -132,32 +127,12 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && username) {
-      let textToSend = input;
-      if (profanityFilter) {
-        try {
-          const result = await filterProfanity({ text: input });
-          textToSend = result.filteredText;
-        } catch (error) {
-          console.error('Profanity filter error:', error);
-          toast({
-            title: "AI Error",
-            description: "Could not apply profanity filter.",
-            variant: "destructive",
-          });
-        }
-      }
-      
       socketRef.current?.emit('send-message', {
         roomId,
-        message: { user: username, text: textToSend },
+        message: { user: username, text: input },
       });
       setInput('');
     }
-  };
-
-  const handleFilterChange = (checked: boolean) => {
-    setProfanityFilter(checked);
-    localStorage.setItem('temptalk-profanity-filter', JSON.stringify(checked));
   };
 
   const handleCopyLink = () => {
@@ -195,35 +170,17 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
         </div>
         <div className="flex items-center space-x-2">
             <TooltipProvider>
-                <div className="flex items-center space-x-2">
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" onClick={handleCopyLink}>
-                            <ClipboardCopy className="h-5 w-5" />
-                            <span className="sr-only">Copy Link</span>
-                        </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                        <p>Copy Room Link</p>
-                        </TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                        <div className="flex items-center space-x-2">
-                            {profanityFilter ? <Shield className="h-5 w-5 text-primary" /> : <ShieldOff className="h-5 w-5 text-muted-foreground" />}
-                            <Switch
-                            id="profanity-filter"
-                            checked={profanityFilter}
-                            onCheckedChange={handleFilterChange}
-                            />
-                        </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                        <p>Toggle Profanity Filter</p>
-                        </TooltipContent>
-                    </Tooltip>
-                </div>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={handleCopyLink}>
+                        <ClipboardCopy className="h-5 w-5" />
+                        <span className="sr-only">Copy Link</span>
+                    </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                    <p>Copy Room Link</p>
+                    </TooltipContent>
+                </Tooltip>
             </TooltipProvider>
 
             {isCreator && (
@@ -262,7 +219,12 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                                 <Avatar className="h-8 w-8">
                                     <AvatarFallback>{getInitials(user)}</AvatarFallback>
                                 </Avatar>
-                                <span className="font-medium">{user} {user === username && '(You)'}</span>
+                                <span className="font-medium truncate">{user} {user === username && '(You)'}</span>
+                                {user === username && (
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto flex-shrink-0" onClick={() => setIsNameModalOpen(true)}>
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
+                                )}
                             </li>
                         ))}
                     </ul>
