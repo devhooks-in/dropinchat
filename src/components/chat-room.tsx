@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Users, LogOut, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Paperclip, X, FileText, Download, Share2, Loader2 } from 'lucide-react';
+import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Paperclip, X, FileText, Download, Share2, Loader2 } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
 import UserList from './user-list';
 import { useToast } from '@/hooks/use-toast';
@@ -378,8 +378,8 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
       <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-4">
         <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-card hover:text-foreground dark:hover:bg-secondary" onClick={() => router.push('/')}>
-                <LogOut className="h-5 w-5" />
-                <span className="sr-only">Exit Room</span>
+                <ArrowLeft className="h-5 w-5" />
+                <span className="sr-only">Go Back</span>
             </Button>
             <div>
                 <h1 className="truncate text-base font-bold font-headline">{currentRoomName}</h1>
