@@ -21,7 +21,7 @@ export default function UserList({ users, username, creatorId, onUserTag, onOpen
       {users.map((user) => (
         <li
           key={user.id}
-          className="flex items-center gap-2 text-sm p-2 rounded-md hover:bg-accent group"
+          className="flex items-center gap-2 text-sm p-2 rounded-md hover:bg-muted group"
           onClick={() => {
             if (user.name !== username) {
               onUserTag(user.name);
