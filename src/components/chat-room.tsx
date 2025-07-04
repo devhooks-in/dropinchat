@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, KeyRound, Link, Smile, Paperclip, X, FileText } from 'lucide-react';
+import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, KeyRound, Link, Smile, Paperclip, X, FileText, Download } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
 import UserList from './user-list';
 import { useToast } from '@/hooks/use-toast';
@@ -465,7 +465,13 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                             {msg.type === 'user' && msg.user !== username && <p className="text-xs font-bold text-secondary-foreground">{msg.user}</p>}
                             
                             {msg.attachment?.type.startsWith('image/') ? (
-                                <img src={msg.attachment.data} alt={msg.attachment.name} className="max-w-full max-h-48 my-2 rounded-md" />
+                                <div className="relative my-2 group/attachment">
+                                    <img src={msg.attachment.data} alt={msg.attachment.name} className="max-w-full max-h-48 rounded-md" />
+                                    <a href={msg.attachment.data} download={msg.attachment.name} className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover/attachment:bg-opacity-50 transition-all duration-300 opacity-0 group-hover/attachment:opacity-100 rounded-md cursor-pointer">
+                                        <Download className="h-8 w-8 text-white" />
+                                        <span className="sr-only">Download Image</span>
+                                    </a>
+                                </div>
                             ) : msg.attachment ? (
                                 <a href={msg.attachment.data} download={msg.attachment.name} className="flex items-center gap-2 my-2 p-2 rounded-md bg-background/20 hover:bg-background/40">
                                     <FileText className="h-6 w-6" />
