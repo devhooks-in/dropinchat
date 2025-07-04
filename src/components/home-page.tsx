@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { LogIn, PlusCircle, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
@@ -98,8 +97,6 @@ export default function HomePage() {
               className="bg-card"
             />
           </div>
-          
-          <Separator />
 
           <form onSubmit={createRoom} className="space-y-4">
             <div className="space-y-2">
