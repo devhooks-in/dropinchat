@@ -59,11 +59,6 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   }, []);
 
   useEffect(() => {
-    // Initialize socket server on component mount
-    fetch('/api/socket');
-  }, []);
-  
-  useEffect(() => {
     const storedName = localStorage.getItem('temptalk-username');
     if (storedName) {
       setUsername(storedName);
@@ -78,52 +73,55 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   }, []);
 
   useEffect(() => {
-    if (username) {
-      const socket = io({ transports: ['websocket'] });
-      socketRef.current = socket;
+    // Initialize socket server and connection once
+    fetch('/api/socket');
 
-      socket.on('connect', () => {
-        socket.emit('join-room', roomId, username);
-      });
+    const socket = io({ transports: ['websocket'] });
+    socketRef.current = socket;
 
-      socket.on('room-state', (data: { messages: Message[], users: string[], creatorName: string | null }) => {
+    socket.on('new-message', (message: Message) => {
+      setMessages(prev => [...prev, message]);
+    });
+
+    socket.on('user-list-update', (updatedUsers: string[]) => {
+      setUsers(updatedUsers);
+    });
+    
+    socket.on('disconnect', () => {
+      toast({ title: 'Disconnected', description: 'You have been disconnected from the server.' });
+    });
+
+    socket.on('history-cleared', (clearedMessages: Message[]) => {
+      setMessages(clearedMessages);
+      toast({ title: 'Chat History Cleared', description: 'The room owner has cleared the chat history.' });
+    });
+
+    socket.on('room-deleted', () => {
+      toast({ title: 'Room Deleted', description: 'The room owner has deleted this room.', variant: 'destructive' });
+      router.push('/');
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [router, toast]);
+
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (socket && username) {
+      socket.emit('join-room', roomId, username);
+
+      socket.once('room-state', (data: { messages: Message[], users: string[], creatorName: string | null }) => {
         setMessages(data.messages);
         setUsers(data.users);
-        if (data.creatorName === username) {
-          setIsCreator(true);
-        }
-        scrollToBottom();
+        setIsCreator(data.creatorName === username);
       });
-
-      socket.on('new-message', (message: Message) => {
-        setMessages(prev => [...prev, message]);
-        scrollToBottom();
-      });
-
-      socket.on('user-list-update', (updatedUsers: string[]) => {
-        setUsers(updatedUsers);
-      });
-      
-      socket.on('disconnect', () => {
-        toast({ title: 'Disconnected', description: 'You have been disconnected from the server.' });
-      });
-
-      socket.on('history-cleared', (clearedMessages: Message[]) => {
-        setMessages(clearedMessages);
-        toast({ title: 'Chat History Cleared', description: 'The room owner has cleared the chat history.' });
-      });
-
-      socket.on('room-deleted', () => {
-        toast({ title: 'Room Deleted', description: 'The room owner has deleted this room.', variant: 'destructive' });
-        router.push('/');
-      });
-
-
-      return () => {
-        socket.disconnect();
-      };
     }
-  }, [roomId, username, toast, scrollToBottom, router]);
+  }, [roomId, username]);
+  
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   const handleNameSubmit = (name: string) => {
     setUsername(name);
@@ -170,7 +168,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     });
   };
   
-  const getInitials = (name: string) => name.charAt(0).toUpperCase();
+  const getInitials = (name: string) => name ? name.charAt(0).toUpperCase() : '?';
 
   const handleClearHistory = () => {
     socketRef.current?.emit('clear-history', roomId);
@@ -303,6 +301,11 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                             <p className="text-base whitespace-pre-wrap break-words">{msg.text}</p>
                             <p className={`text-xs opacity-70 ${msg.user === username ? 'text-right' : 'text-left'}`}>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
+                        {msg.type === 'user' && msg.user === username && (
+                            <Avatar className="h-8 w-8">
+                                <AvatarFallback>{getInitials(msg.user)}</AvatarFallback>
+                            </Avatar>
+                        )}
                       </div>
                     ))}
                   </div>
