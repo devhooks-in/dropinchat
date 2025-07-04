@@ -42,6 +42,28 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 
+const linkify = (text: string) => {
+  if (!text) return text;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return text.split(urlRegex).map((part, index) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline-offset-4 hover:underline"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
 export default function ChatRoom({ roomId, roomName }: { roomId: string, roomName?: string }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -550,7 +572,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                                 </a>
                             ) : null}
                             
-                            {msg.text && <p className={`whitespace-pre-wrap break-words ${msg.type === 'user' ? 'text-sm' : ''}`}>{msg.text}</p>}
+                            {msg.text && <p className={`whitespace-pre-wrap break-words ${msg.type === 'user' ? 'text-sm' : ''}`}>{linkify(msg.text)}</p>}
                             <p className={`opacity-70 ${msg.type === 'system' ? 'text-[10px]' : `text-[11px] ${msg.user === username ? 'text-user-message-foreground/70' : 'text-secondary-foreground/70 text-left'}`}`}>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
                         {msg.type === 'user' && msg.user === username && (
