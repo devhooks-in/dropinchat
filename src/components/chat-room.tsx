@@ -448,7 +448,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                       </div>
                     )}
                   <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
                     <Button type="button" variant="ghost" size="icon" onClick={handleAttachmentClick}>
                         <Paperclip className="h-5 w-5" />
                         <span className="sr-only">Attach file</span>
