@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   },
   themeColor: '#1f2937',
   icons: {
-    apple: '/icons/icon-192x192.svg',
+    apple: '/icons/icon-192x192.png',
   },
 };
 

@@ -1,12 +1,16 @@
+// Basic service worker for PWA caching
+const CACHE_NAME = 'dropinchat-v1';
+const urlsToCache = [
+  '/',
+  '/manifest.json',
+  // Add other static assets here if needed
+];
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open('dropinchat-v1').then((cache) => {
-      return cache.addAll([
-        '/',
-        '/manifest.json',
-        '/icons/icon-192x192.svg',
-        '/icons/icon-512x512.svg'
-      ]);
+    caches.open(CACHE_NAME).then((cache) => {
+      console.log('Opened cache');
+      return cache.addAll(urlsToCache);
     })
   );
 });
@@ -14,7 +18,10 @@ self.addEventListener('install', (event) => {
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
+      if (response) {
+        return response;
+      }
+      return fetch(event.request);
     })
   );
 });
