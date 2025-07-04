@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Users, LogOut, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Smile, Paperclip, X, FileText, Download, Share2 } from 'lucide-react';
+import { Send, Users, LogOut, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Paperclip, X, FileText, Download, Share2 } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
 import UserList from './user-list';
 import { useToast } from '@/hooks/use-toast';
@@ -37,8 +37,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -547,20 +545,6 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                         <Paperclip className="h-5 w-5" />
                         <span className="sr-only">Attach file</span>
                     </Button>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button type="button" variant="ghost" size="icon">
-                                <Smile className="h-5 w-5" />
-                                <span className="sr-only">Add emoji</span>
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 border-0">
-                            <EmojiPicker
-                                onEmojiClick={(emoji) => setInput(input + emoji.emoji)}
-                                theme={EmojiTheme.AUTO}
-                            />
-                        </PopoverContent>
-                    </Popover>
                     <Input
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
@@ -654,5 +638,3 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     </div>
   );
 }
-
-    
