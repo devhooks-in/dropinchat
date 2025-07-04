@@ -590,7 +590,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                     {attachment && (
                       <div className="relative mb-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-md border bg-card p-2">
                         {attachment.type.startsWith('image/') ? (
-                            <img src={attachment.data} alt="Preview" className="h-12 w-12 rounded-md object-cover" />
+                            <img src={attachment.data} alt="Preview" className="h-12 w-12 rounded-md object-cover flex-shrink-0" />
                         ): (
                             <FileText className="h-8 w-8 shrink-0 text-muted-foreground" />
                         )}
@@ -618,7 +618,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       placeholder="Type a message..."
-                      className="flex-1 bg-card focus-visible:ring-0 focus-visible:ring-offset-0"
+                      className="flex-1 bg-card"
                       autoComplete="off"
                     />
                     <Button type="submit" size="icon" disabled={!input.trim() && !attachment}>
