@@ -365,7 +365,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
       <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-4">
         <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-card hover:text-foreground dark:hover:bg-secondary" onClick={() => router.push('/')}>
-                <LogOut className="h-5 w-5" />
+                <LogOut className="h-5 w-5 rotate-180" />
                 <span className="sr-only">Exit Room</span>
             </Button>
             <div>
