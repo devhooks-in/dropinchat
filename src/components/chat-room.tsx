@@ -402,7 +402,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                             msg.type === 'system'
                               ? 'text-center text-xs text-muted-foreground italic'
                               : msg.user === username
-                              ? 'rounded-br-none bg-primary text-primary-foreground'
+                              ? 'rounded-br-none bg-user-message text-user-message-foreground'
                               : 'rounded-bl-none bg-secondary text-secondary-foreground'
                           }`}
                         >
@@ -418,7 +418,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                             ) : null}
                             
                             {msg.text && <p className="text-base whitespace-pre-wrap break-words">{msg.text}</p>}
-                            <p className={`text-xs opacity-70 ${msg.user === username ? 'text-primary-foreground/70' : 'text-secondary-foreground/70 text-left'}`}>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                            <p className={`text-xs opacity-70 ${msg.user === username ? 'text-user-message-foreground/70' : 'text-secondary-foreground/70 text-left'}`}>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
                         {msg.type === 'user' && msg.user === username && (
                             <Avatar className="h-8 w-8">
