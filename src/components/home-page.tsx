@@ -27,8 +27,6 @@ export default function HomePage() {
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;
     setUsername(name);
-    // Also save to local storage immediately so it can be picked up
-    // by the chat page even if the user navigates directly.
     if (name.trim()) {
       localStorage.setItem('dropinchat-username', name.trim());
     } else {

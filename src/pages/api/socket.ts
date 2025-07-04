@@ -72,7 +72,6 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
       }
       const room = rooms.get(roomId)!;
       
-      // Only send "joined" message if they are truly new
       if (!room.users.has(socket.id)) {
         sendSystemMessage(roomId, `${username} has joined the room.`);
       }

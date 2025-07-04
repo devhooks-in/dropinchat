@@ -1,9 +1,8 @@
 // Basic service worker for PWA caching
-const CACHE_NAME = 'dropinchat-v1';
+const CACHE_NAME = 'dropinchat-cache-v1';
 const urlsToCache = [
   '/',
-  '/manifest.json',
-  // Add other static assets here if needed
+  '/manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
