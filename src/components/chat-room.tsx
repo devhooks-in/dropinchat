@@ -16,7 +16,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -37,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function ChatRoom({ roomId, roomName }: { roomId: string, roomName?: string }) {
   const router = useRouter();
@@ -212,41 +212,71 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                 <Users className="h-4 w-4" /> {users.length} user{users.length !== 1 ? 's' : ''} online
             </div>
         </div>
-        <div className="flex items-center space-x-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreVertical className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={handleCopyLink}>
-                  <Link className="mr-2 h-4 w-4" />
-                  <span>Copy Room Link</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={handleCopyId}>
-                  <KeyRound className="mr-2 h-4 w-4" />
-                  <span>Copy Room ID</span>
-                </DropdownMenuItem>
+        <div className="flex items-center space-x-1">
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={handleCopyLink}>
+                            <Link className="h-5 w-5" />
+                            <span className="sr-only">Copy Room Link</span>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Copy Room Link</p>
+                    </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={handleCopyId}>
+                            <KeyRound className="h-5 w-5" />
+                            <span className="sr-only">Copy Room ID</span>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Copy Room ID</p>
+                    </TooltipContent>
+                </Tooltip>
+
                 {isCreator && (
                     <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onSelect={() => { setNewRoomNameInput(currentRoomName); setIsRenameRoomModalOpen(true); }}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            <span>Rename Room</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setShowClearConfirm(true)}>
-                            <Eraser className="mr-2 h-4 w-4" />
-                            <span>Clear History</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setShowDeleteConfirm(true)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            <span>Delete Room</span>
-                        </DropdownMenuItem>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" onClick={() => setShowClearConfirm(true)}>
+                                    <Eraser className="h-5 w-5" />
+                                    <span className="sr-only">Clear History</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Clear History</p>
+                            </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" onClick={() => setShowDeleteConfirm(true)} className="text-destructive hover:text-destructive focus:text-destructive/90 hover:bg-destructive/10">
+                                    <Trash2 className="h-5 w-5" />
+                                    <span className="sr-only">Delete Room</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Delete Room</p>
+                            </TooltipContent>
+                        </Tooltip>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                    <MoreVertical className="h-5 w-5" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onSelect={() => { setNewRoomNameInput(currentRoomName); setIsRenameRoomModalOpen(true); }}>
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    <span>Rename Room</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </>
                 )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            </TooltipProvider>
         </div>
       </header>
       
