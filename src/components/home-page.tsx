@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,18 +14,35 @@ export default function HomePage() {
   const router = useRouter();
   const [joinRoomId, setJoinRoomId] = useState('');
   const [newRoomName, setNewRoomName] = useState('');
+  const [username, setUsername] = useState('');
   const { toast } = useToast();
+
+  useEffect(() => {
+    const storedName = localStorage.getItem('temptalk-username');
+    if (storedName) {
+      setUsername(storedName);
+    }
+  }, []);
 
   const createRoom = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!newRoomName.trim()) {
-        toast({
-            title: "Error",
-            description: "Please enter a room name.",
-            variant: "destructive",
-        });
-        return;
+    if (username.trim().length < 3) {
+      toast({
+        title: 'Invalid Name',
+        description: 'Your name must be at least 3 characters long.',
+        variant: 'destructive',
+      });
+      return;
     }
+    if (!newRoomName.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a room name.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    localStorage.setItem('temptalk-username', username.trim());
     const newRoomId = Math.random().toString(36).substring(2, 9);
     router.push(`/chat/${newRoomId}?name=${encodeURIComponent(newRoomName.trim())}`);
   };
@@ -36,9 +53,9 @@ export default function HomePage() {
       router.push(`/chat/${joinRoomId.trim()}`);
     } else {
       toast({
-        title: "Error",
-        description: "Please enter a Room ID.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Please enter a Room ID.',
+        variant: 'destructive',
       });
     }
   };
@@ -53,18 +70,28 @@ export default function HomePage() {
         <CardContent className="space-y-6 p-6">
           <form onSubmit={createRoom} className="space-y-4">
             <div className="space-y-2">
-                <Label htmlFor="roomName">Create a New Chat Room</Label>
-                <Input
-                    id="roomName"
-                    placeholder="Enter a name for your room"
-                    value={newRoomName}
-                    onChange={(e) => setNewRoomName(e.target.value)}
-                    className="bg-card"
-                />
+              <Label htmlFor="username">Your Name</Label>
+              <Input
+                id="username"
+                placeholder="Enter your name"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="bg-card"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="roomName">New Room Name</Label>
+              <Input
+                id="roomName"
+                placeholder="Enter a name for your new room"
+                value={newRoomName}
+                onChange={(e) => setNewRoomName(e.target.value)}
+                className="bg-card"
+              />
             </div>
             <Button type="submit" className="w-full" size="lg">
               <PlusCircle className="mr-2 h-5 w-5" />
-              Create Room
+              Create & Join Room
             </Button>
           </form>
 
