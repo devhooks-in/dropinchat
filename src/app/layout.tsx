@@ -4,13 +4,13 @@ import { Toaster } from "@/components/ui/toaster"
 import PwaInstaller from '@/components/pwa-installer';
 
 export const metadata: Metadata = {
-  title: 'TempTalk',
+  title: 'TempChat',
   description: 'Real-time private chat rooms.',
   manifest: '/manifest.json',
-  applicationName: 'TempTalk',
+  applicationName: 'TempChat',
   appleWebApp: {
     capable: true,
-    title: 'TempTalk',
+    title: 'TempChat',
     statusBarStyle: 'default',
   },
   formatDetection: {

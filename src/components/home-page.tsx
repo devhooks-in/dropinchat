@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { LogIn, PlusCircle } from 'lucide-react';
+import { LogIn, PlusCircle, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 
@@ -18,7 +18,7 @@ export default function HomePage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const storedName = localStorage.getItem('temptalk-username');
+    const storedName = localStorage.getItem('tempchat-username');
     if (storedName) {
       setUsername(storedName);
     }
@@ -30,9 +30,9 @@ export default function HomePage() {
     // Also save to local storage immediately so it can be picked up
     // by the chat page even if the user navigates directly.
     if (name.trim()) {
-      localStorage.setItem('temptalk-username', name.trim());
+      localStorage.setItem('tempchat-username', name.trim());
     } else {
-      localStorage.removeItem('temptalk-username');
+      localStorage.removeItem('tempchat-username');
     }
   };
 
@@ -83,7 +83,10 @@ export default function HomePage() {
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold font-headline">TempTalk</CardTitle>
+          <div className="flex items-center justify-center gap-2">
+            <MessageSquare className="h-8 w-8 text-primary" />
+            <CardTitle className="text-3xl font-bold font-headline">TempChat</CardTitle>
+          </div>
           <CardDescription>Real-time private chat rooms</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 p-6">
