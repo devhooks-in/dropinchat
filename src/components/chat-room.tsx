@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, KeyRound, Link } from 'lucide-react';
+import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, KeyRound, Link, Smile, Paperclip, X, FileText } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
 import UserList from './user-list';
 import { useToast } from '@/hooks/use-toast';
@@ -37,6 +37,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import EmojiPicker, { Theme as EmojiTheme } from 'emoji-picker-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -52,8 +54,10 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
   const [users, setUsers] = useState<User[]>([]);
   const [creatorId, setCreatorId] = useState<string | null>(null);
   const [input, setInput] = useState('');
+  const [attachment, setAttachment] = useState<{ name: string; type: string; data: string } | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -170,12 +174,13 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim() && username) {
+    if ((input.trim() || attachment) && username) {
       socketRef.current?.emit('send-message', {
         roomId,
-        message: { user: username, text: input },
+        message: { user: username, text: input, attachment },
       });
       setInput('');
+      setAttachment(null);
     }
   };
 
@@ -227,6 +232,33 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     setInput(prevInput => `${prevInput}@${usernameToTag} `);
     const inputElement = document.querySelector<HTMLInputElement>('form input[type="text"]');
     inputElement?.focus();
+  };
+
+  const handleAttachmentClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: 'File too large',
+          description: 'Please select a file smaller than 5MB.',
+          variant: 'destructive'
+        });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (loadEvent) => {
+        setAttachment({
+          name: file.name,
+          type: file.type,
+          data: loadEvent.target?.result as string,
+        });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   return (
@@ -375,7 +407,17 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                           }`}
                         >
                             {msg.type === 'user' && msg.user !== username && <p className="text-xs font-bold text-secondary-foreground">{msg.user}</p>}
-                            <p className="text-base whitespace-pre-wrap break-words">{msg.text}</p>
+                            
+                            {msg.attachment?.type.startsWith('image/') ? (
+                                <img src={msg.attachment.data} alt={msg.attachment.name} className="max-w-full max-h-48 my-2 rounded-md" />
+                            ) : msg.attachment ? (
+                                <a href={msg.attachment.data} download={msg.attachment.name} className="flex items-center gap-2 my-2 p-2 rounded-md bg-background/20 hover:bg-background/40">
+                                    <FileText className="h-6 w-6" />
+                                    <span className="truncate">{msg.attachment.name}</span>
+                                </a>
+                            ) : null}
+                            
+                            {msg.text && <p className="text-base whitespace-pre-wrap break-words">{msg.text}</p>}
                             <p className={`text-xs opacity-70 ${msg.user === username ? 'text-primary-foreground/70' : 'text-secondary-foreground/70 text-left'}`}>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
                         {msg.type === 'user' && msg.user === username && (
@@ -389,7 +431,42 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                 </ScrollArea>
 
                 <div className="border-t p-4 bg-background">
+                    {attachment && (
+                      <div className="mb-2 flex items-center gap-2 rounded-md border bg-card p-2">
+                        {attachment.type.startsWith('image/') ? (
+                            <img src={attachment.data} alt="Preview" className="h-12 w-12 rounded-md object-cover" />
+                        ): (
+                            <FileText className="h-8 w-8 text-muted-foreground" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate text-sm font-medium">{attachment.name}</p>
+                          <p className="text-xs text-muted-foreground">{ (attachment.data.length / 1024).toFixed(2) } KB</p>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setAttachment(null)}>
+                            <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                    <Button type="button" variant="ghost" size="icon" onClick={handleAttachmentClick}>
+                        <Paperclip className="h-5 w-5" />
+                        <span className="sr-only">Attach file</span>
+                    </Button>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button type="button" variant="ghost" size="icon">
+                                <Smile className="h-5 w-5" />
+                                <span className="sr-only">Add emoji</span>
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 border-0">
+                            <EmojiPicker
+                                onEmojiClick={(emoji) => setInput(input + emoji.emoji)}
+                                theme={EmojiTheme.AUTO}
+                            />
+                        </PopoverContent>
+                    </Popover>
                     <Input
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
@@ -397,7 +474,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                       className="flex-1 bg-card"
                       autoComplete="off"
                     />
-                    <Button type="submit" size="icon" disabled={!input.trim()}>
+                    <Button type="submit" size="icon" disabled={!input.trim() && !attachment}>
                       <Send className="h-5 w-5" />
                     </Button>
                   </form>
@@ -414,7 +491,10 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                 </SheetTitle>
             </SheetHeader>
             <CardContent className="flex-1 p-2 overflow-y-auto">
-                <UserList users={users} username={username} creatorId={creatorId} onUserTag={handleUserTag} onOpenChangeName={() => {
+                <UserList users={users} username={username} creatorId={creatorId} onUserTag={(name) => {
+                    handleUserTag(name);
+                    setIsUsersSheetOpen(false);
+                }} onOpenChangeName={() => {
                     openChangeNameModal();
                     setIsUsersSheetOpen(false);
                 }} />
