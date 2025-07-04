@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, KeyRound, Link, Smile, Paperclip, X, FileText, Download } from 'lucide-react';
+import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Smile, Paperclip, X, FileText, Download, Share2 } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
 import UserList from './user-list';
 import { useToast } from '@/hooks/use-toast';
@@ -66,6 +66,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
   const [newRoomNameInput, setNewRoomNameInput] = useState('');
   const hasJoined = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const [canShare, setCanShare] = useState(false);
 
   const playNotificationSound = useCallback(() => {
     // Resume context if it's suspended (autoplay policy)
@@ -102,6 +103,12 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
           scrollViewport.scrollTop = scrollViewport.scrollHeight;
         }
     }, 100);
+  }, []);
+
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      setCanShare(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -256,6 +263,28 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     });
   };
   
+  const handleShare = async () => {
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: `Join my DropInChat room: ${currentRoomName}`,
+                text: `Click the link to join the chat room "${currentRoomName}"`,
+                url: window.location.href,
+            });
+        } catch (error) {
+            if ((error as DOMException)?.name === 'AbortError') {
+                return; // User cancelled the share operation.
+            }
+            console.error('Error sharing:', error);
+            toast({
+                title: 'Could not share',
+                description: 'An error occurred while trying to share the room link.',
+                variant: 'destructive',
+            });
+        }
+    }
+  };
+
   const getInitials = (name: string) => name ? name.charAt(0).toUpperCase() : '?';
 
   const handleClearHistory = () => {
@@ -351,6 +380,19 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                 <span className="sr-only">Show users</span>
             </Button>
             <TooltipProvider>
+                {canShare && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="hover:bg-card hover:text-foreground dark:hover:bg-secondary" onClick={handleShare}>
+                        <Share2 className="h-5 w-5" />
+                        <span className="sr-only">Share Room</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Share Room</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <Button variant="ghost" size="icon" className="hover:bg-card hover:text-foreground dark:hover:bg-secondary" onClick={handleCopyLink}>
@@ -365,7 +407,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <Button variant="ghost" size="icon" className="hover:bg-card hover:text-foreground dark:hover:bg-secondary" onClick={handleCopyId}>
-                            <KeyRound className="h-5 w-5" />
+                            <Hash className="h-5 w-5" />
                             <span className="sr-only">Copy Room ID</span>
                         </Button>
                     </TooltipTrigger>
