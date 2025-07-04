@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { LogIn, PlusCircle, MessageSquare } from 'lucide-react';
+import { LogIn, PlusCircle, MessageSquare, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 
@@ -14,6 +14,7 @@ export default function HomePage() {
   const [joinRoomId, setJoinRoomId] = useState('');
   const [newRoomName, setNewRoomName] = useState('');
   const [username, setUsername] = useState('');
+  const [loading, setLoading] = useState< 'create' | 'join' | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -47,7 +48,7 @@ export default function HomePage() {
 
   const createRoom = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!validateUsername()) return;
+    if (loading || !validateUsername()) return;
 
     if (!newRoomName.trim()) {
       toast({
@@ -57,15 +58,17 @@ export default function HomePage() {
       });
       return;
     }
+    setLoading('create');
     const newRoomId = Math.random().toString(36).substring(2, 9);
     router.push(`/chat/${newRoomId}?name=${encodeURIComponent(newRoomName.trim())}`);
   };
 
   const joinRoom = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!validateUsername()) return;
+    if (loading || !validateUsername()) return;
     
     if (joinRoomId.trim()) {
+      setLoading('join');
       router.push(`/chat/${joinRoomId.trim()}`);
     } else {
       toast({
@@ -78,7 +81,7 @@ export default function HomePage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md shadow-lg">
+      <Card className="w-full max-w-md shadow-lg animate-fade-in">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2">
             <MessageSquare className="h-8 w-8 text-primary" />
@@ -109,8 +112,12 @@ export default function HomePage() {
                 className="bg-card"
               />
             </div>
-            <Button type="submit" className="w-full" size="lg">
-              <PlusCircle className="mr-2 h-5 w-5" />
+            <Button type="submit" className="w-full" size="lg" disabled={!!loading}>
+              {loading === 'create' ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <PlusCircle className="mr-2 h-5 w-5" />
+              )}
               Create & Join Room
             </Button>
           </form>
@@ -137,8 +144,12 @@ export default function HomePage() {
                 className="bg-card"
               />
             </div>
-            <Button type="submit" variant="secondary" className="w-full">
-              <LogIn className="mr-2 h-5 w-5" />
+            <Button type="submit" variant="secondary" className="w-full" disabled={!!loading}>
+              {loading === 'join' ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <LogIn className="mr-2 h-5 w-5" />
+              )}
               Join Room
             </Button>
           </form>

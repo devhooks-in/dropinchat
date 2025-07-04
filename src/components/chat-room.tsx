@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Users, LogOut, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Paperclip, X, FileText, Download, Share2 } from 'lucide-react';
+import { Send, Users, LogOut, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Paperclip, X, FileText, Download, Share2, Loader2 } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
 import UserList from './user-list';
 import { useToast } from '@/hooks/use-toast';
@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ChatRoom({ roomId, roomName }: { roomId: string, roomName?: string }) {
   const router = useRouter();
@@ -67,8 +68,13 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
   const audioContextRef = useRef<AudioContext | null>(null);
   const [canShare, setCanShare] = useState(false);
 
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isAttachingFile, setIsAttachingFile] = useState(false);
+
   const playNotificationSound = useCallback(() => {
-    // Resume context if it's suspended (autoplay policy)
     if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
       audioContextRef.current.resume();
     }
@@ -122,8 +128,6 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
       setIsInitialNamePrompt(true);
       setIsNameModalOpen(true);
     }
-    // Browsers require a user gesture to start audio. We'll create the context here,
-    // and it will be resumed when the notification sound is first played.
     if (!audioContextRef.current) {
         try {
             audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -133,7 +137,6 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     }
   }, []);
 
-  // Effect for setting up socket connection and listeners that don't depend on state
   useEffect(() => {
     fetch('/api/socket');
 
@@ -150,6 +153,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
 
     socket.on('history-cleared', (clearedMessages: Message[]) => {
       setMessages(clearedMessages);
+      setIsClearing(false);
       toast({ title: 'Chat History Cleared', description: 'The room owner has cleared the chat history.' });
     });
 
@@ -180,14 +184,12 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     };
   }, [router, toast]);
   
-  // Effect for handling new messages, which depends on the current username
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
     
     const handleNewMessage = (message: Message) => {
         setMessages(prev => [...prev, message]);
-        // Play sound if the tab is not visible and the message is from another user
         if (document.hidden && message.user !== username && message.type === 'user') {
             playNotificationSound();
         }
@@ -200,7 +202,6 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     };
   }, [username, playNotificationSound]);
 
-  // Effect for joining the room once the username is available
   useEffect(() => {
     const socket = socketRef.current;
     if (socket && username && !hasJoined.current) {
@@ -213,6 +214,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
         setCreatorId(data.creatorId);
         setIsCreator(data.creatorId === socket.id);
         setCurrentRoomName(data.roomName);
+        setIsLoading(false);
         scrollToBottom();
       });
     }
@@ -272,7 +274,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
             });
         } catch (error) {
             if ((error as DOMException)?.name === 'AbortError') {
-                return; // User cancelled the share operation.
+                return;
             }
             console.error('Error sharing:', error);
             toast({
@@ -287,20 +289,26 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
   const getInitials = (name: string) => name ? name.charAt(0).toUpperCase() : '?';
 
   const handleClearHistory = () => {
+    if(isClearing) return;
+    setIsClearing(true);
     socketRef.current?.emit('clear-history', roomId);
     setShowClearConfirm(false);
   };
 
   const handleDeleteRoom = () => {
+    if(isDeleting) return;
+    setIsDeleting(true);
     socketRef.current?.emit('delete-room', roomId);
   };
 
   const handleRenameRoom = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newRoomNameInput.trim() && isCreator) {
+    if (newRoomNameInput.trim() && isCreator && !isRenaming) {
+        setIsRenaming(true);
         socketRef.current?.emit('update-room-name', roomId, newRoomNameInput.trim());
         setIsRenameRoomModalOpen(false);
         setNewRoomNameInput('');
+        setIsRenaming(false);
     }
   };
 
@@ -334,13 +342,19 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
         return;
       }
       const reader = new FileReader();
+      setIsAttachingFile(true);
       reader.onload = (loadEvent) => {
         setAttachment({
           name: file.name,
           type: file.type,
           data: loadEvent.target?.result as string,
         });
+        setIsAttachingFile(false);
       };
+      reader.onerror = () => {
+        toast({ title: 'Error reading file', variant: 'destructive'});
+        setIsAttachingFile(false);
+      }
       reader.readAsDataURL(file);
     }
   };
@@ -364,7 +378,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
       <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-4">
         <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-card hover:text-foreground dark:hover:bg-secondary" onClick={() => router.push('/')}>
-                <LogOut className="h-5 w-5 rotate-180" />
+                <LogOut className="h-5 w-5" />
                 <span className="sr-only">Exit Room</span>
             </Button>
             <div>
@@ -466,12 +480,36 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
             </Card>
 
             <div className="flex-1 flex flex-col h-full bg-white dark:bg-gray-100">
+              {isLoading ? (
+                <div className="flex-1 p-4 space-y-6 animate-pulse">
+                  <div className="flex items-end gap-2 justify-start">
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                    <div className="flex flex-col gap-2">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-12 w-48" />
+                    </div>
+                  </div>
+                  <div className="flex items-end gap-2 justify-end">
+                    <div className="flex flex-col gap-2 items-end">
+                      <Skeleton className="h-16 w-40" />
+                    </div>
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                  </div>
+                   <div className="flex items-end gap-2 justify-start">
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                    <div className="flex flex-col gap-2">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-10 w-32" />
+                    </div>
+                  </div>
+                </div>
+              ) : (
                 <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
                   <div className="space-y-4">
                     {messages.map((msg) => (
                       <div
                         key={msg.id}
-                        className={`flex items-end gap-2 ${
+                        className={`flex items-end gap-2 animate-fade-in-up ${
                           msg.type === 'system'
                             ? 'justify-center'
                             : msg.user === username
@@ -505,7 +543,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                                 </div>
                             ) : msg.attachment ? (
                                 <a href={msg.attachment.data} download={msg.attachment.name} className="grid grid-cols-[auto_1fr] items-center gap-2 my-2 p-2 rounded-md bg-background/20 hover:bg-background/40">
-                                    <FileText className="h-6 w-6" />
+                                    <FileText className="h-6 w-6 shrink-0" />
                                     <div className="min-w-0">
                                         <p className="truncate">{msg.attachment.name}</p>
                                     </div>
@@ -524,22 +562,28 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                     ))}
                   </div>
                 </ScrollArea>
+              )}
 
                 <div className="border-t p-4 bg-background">
                     {attachment && (
-                      <div className="mb-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-md border bg-card p-2">
+                      <div className="relative mb-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-md border bg-card p-2">
                         {attachment.type.startsWith('image/') ? (
                             <img src={attachment.data} alt="Preview" className="h-12 w-12 rounded-md object-cover" />
                         ): (
-                            <FileText className="h-8 w-8 text-muted-foreground" />
+                            <FileText className="h-8 w-8 shrink-0 text-muted-foreground" />
                         )}
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">{attachment.name}</p>
                           <p className="text-xs text-muted-foreground">{ (attachment.data.length / 1024).toFixed(2) } KB</p>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setAttachment(null)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setAttachment(null)}>
                             <X className="h-4 w-4" />
                         </Button>
+                        {isAttachingFile && (
+                          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/80">
+                            <Loader2 className="h-6 w-6 animate-spin" />
+                          </div>
+                        )}
                       </div>
                     )}
                   <form onSubmit={handleSendMessage} className="flex items-center gap-2">
@@ -583,7 +627,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
         </SheetContent>
       </Sheet>
 
-      <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+      <AlertDialog open={showClearConfirm} onOpenChange={(open) => {setShowClearConfirm(open); if(!open) setIsClearing(false);}}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -593,12 +637,15 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleClearHistory}>Clear History</AlertDialogAction>
+            <AlertDialogAction onClick={handleClearHistory} disabled={isClearing}>
+              {isClearing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Clear History
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <AlertDialog open={showDeleteConfirm} onOpenChange={(open) => {setShowDeleteConfirm(open); if(!open) setIsDeleting(false);}}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -608,12 +655,15 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteRoom} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete Room</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteRoom} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete Room
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={isRenameRoomModalOpen} onOpenChange={setIsRenameRoomModalOpen}>
+      <Dialog open={isRenameRoomModalOpen} onOpenChange={(open) => {setIsRenameRoomModalOpen(open); if(!open) setIsRenaming(false);}}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Rename Room</DialogTitle>
@@ -633,7 +683,10 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
             </div>
             <DialogFooter>
               <Button type="button" variant="secondary" onClick={() => setIsRenameRoomModalOpen(false)}>Cancel</Button>
-              <Button type="submit">Save</Button>
+              <Button type="submit" disabled={isRenaming}>
+                {isRenaming && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
