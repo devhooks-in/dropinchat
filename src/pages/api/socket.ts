@@ -16,7 +16,13 @@ interface NextApiResponseWithSocket extends NextApiResponse {
   socket: SocketWithIO;
 }
 
-const rooms = new Map<string, { users: Map<string, string>; messages: Message[] }>();
+interface Room {
+  users: Map<string, string>; // socket.id -> username
+  messages: Message[];
+  creatorId: string | null;
+}
+
+const rooms = new Map<string, Room>();
 
 export default function socketHandler(req: NextApiRequest, res: NextApiResponseWithSocket) {
   if (res.socket.server.io) {
@@ -40,9 +46,14 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
       socket.join(roomId);
 
       if (!rooms.has(roomId)) {
-        rooms.set(roomId, { users: new Map(), messages: [] });
+        rooms.set(roomId, { users: new Map(), messages: [], creatorId: null });
       }
       const room = rooms.get(roomId)!;
+
+      // Set creator on first join
+      if (room.creatorId === null) {
+        room.creatorId = socket.id;
+      }
       room.users.set(socket.id, username);
 
       const systemMessage: Message = {
@@ -54,7 +65,14 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
       };
       room.messages.push(systemMessage);
 
-      socket.emit('room-state', room.messages, getRoomUsers(roomId));
+      // Emit room state to the joining user
+      socket.emit('room-state', {
+        messages: room.messages,
+        users: getRoomUsers(roomId),
+        creatorName: room.creatorId ? room.users.get(room.creatorId) : null,
+      });
+
+      // Notify others in the room
       socket.to(roomId).emit('new-message', systemMessage);
       io.to(roomId).emit('user-list-update', getRoomUsers(roomId));
     });
@@ -74,12 +92,41 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
       }
     });
 
+    socket.on('clear-history', (roomId: string) => {
+      const room = rooms.get(roomId);
+      if (room && room.creatorId === socket.id) {
+        const username = room.users.get(socket.id) || 'The room owner';
+        const systemMessage: Message = {
+          id: `${Date.now()}-system`,
+          user: 'System',
+          text: `${username} has cleared the chat history.`,
+          timestamp: Date.now(),
+          type: 'system',
+        };
+        room.messages = [systemMessage];
+        io.to(roomId).emit('history-cleared', room.messages);
+      }
+    });
+
+    socket.on('delete-room', (roomId: string) => {
+      const room = rooms.get(roomId);
+      if (room && room.creatorId === socket.id) {
+        io.to(roomId).emit('room-deleted');
+        // Disconnect all sockets in the room, which will trigger disconnect event for each
+        io.in(roomId).disconnectSockets(true);
+        rooms.delete(roomId);
+      }
+    });
+
     socket.on('disconnect', () => {
       if (currentRoomId) {
         const room = rooms.get(currentRoomId);
         if (room) {
           const username = room.users.get(socket.id);
           room.users.delete(socket.id);
+
+          // If the creator leaves, no one else becomes the creator.
+          // The actions will just be unavailable.
 
           if (username) {
              const systemMessage: Message = {

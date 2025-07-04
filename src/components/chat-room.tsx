@@ -11,11 +11,28 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Shield, ShieldOff, Users, ArrowLeft, ClipboardCopy } from 'lucide-react';
+import { Send, Shield, ShieldOff, Users, ArrowLeft, ClipboardCopy, MoreVertical, Eraser, Trash2 } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
 import { useToast } from '@/hooks/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function ChatRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
@@ -28,6 +45,9 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   const [profanityFilter, setProfanityFilter] = useState(true);
   const socketRef = useRef<Socket | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [isCreator, setIsCreator] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
@@ -38,6 +58,11 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     }, 100);
   }, []);
 
+  useEffect(() => {
+    // Initialize socket server on component mount
+    fetch('/api/socket');
+  }, []);
+  
   useEffect(() => {
     const storedName = localStorage.getItem('temptalk-username');
     if (storedName) {
@@ -58,13 +83,15 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
       socketRef.current = socket;
 
       socket.on('connect', () => {
-        fetch('/api/socket'); // Ensure socket handler is initialized
         socket.emit('join-room', roomId, username);
       });
 
-      socket.on('room-state', (initialMessages: Message[], initialUsers: string[]) => {
-        setMessages(initialMessages);
-        setUsers(initialUsers);
+      socket.on('room-state', (data: { messages: Message[], users: string[], creatorName: string | null }) => {
+        setMessages(data.messages);
+        setUsers(data.users);
+        if (data.creatorName === username) {
+          setIsCreator(true);
+        }
         scrollToBottom();
       });
 
@@ -81,11 +108,22 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
         toast({ title: 'Disconnected', description: 'You have been disconnected from the server.' });
       });
 
+      socket.on('history-cleared', (clearedMessages: Message[]) => {
+        setMessages(clearedMessages);
+        toast({ title: 'Chat History Cleared', description: 'The room owner has cleared the chat history.' });
+      });
+
+      socket.on('room-deleted', () => {
+        toast({ title: 'Room Deleted', description: 'The room owner has deleted this room.', variant: 'destructive' });
+        router.push('/');
+      });
+
+
       return () => {
         socket.disconnect();
       };
     }
-  }, [roomId, username, toast, scrollToBottom]);
+  }, [roomId, username, toast, scrollToBottom, router]);
 
   const handleNameSubmit = (name: string) => {
     setUsername(name);
@@ -134,6 +172,15 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   
   const getInitials = (name: string) => name.charAt(0).toUpperCase();
 
+  const handleClearHistory = () => {
+    socketRef.current?.emit('clear-history', roomId);
+    setShowClearConfirm(false);
+  };
+
+  const handleDeleteRoom = () => {
+    socketRef.current?.emit('delete-room', roomId);
+  };
+
   return (
     <div className="flex h-screen flex-col bg-background">
       <NamePromptDialog isOpen={isNameModalOpen} onNameSubmit={handleNameSubmit} />
@@ -148,37 +195,60 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                 <Users className="h-4 w-4" /> {users.length} user{users.length !== 1 ? 's' : ''} online
             </div>
         </div>
-        <TooltipProvider>
-            <div className="flex items-center space-x-4">
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={handleCopyLink}>
-                        <ClipboardCopy className="h-5 w-5" />
-                        <span className="sr-only">Copy Link</span>
-                    </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                    <p>Copy Room Link</p>
-                    </TooltipContent>
-                </Tooltip>
+        <div className="flex items-center space-x-2">
+            <TooltipProvider>
+                <div className="flex items-center space-x-2">
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={handleCopyLink}>
+                            <ClipboardCopy className="h-5 w-5" />
+                            <span className="sr-only">Copy Link</span>
+                        </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                        <p>Copy Room Link</p>
+                        </TooltipContent>
+                    </Tooltip>
 
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                    <div className="flex items-center space-x-2">
-                        {profanityFilter ? <Shield className="h-5 w-5 text-primary" /> : <ShieldOff className="h-5 w-5 text-muted-foreground" />}
-                        <Switch
-                        id="profanity-filter"
-                        checked={profanityFilter}
-                        onCheckedChange={handleFilterChange}
-                        />
-                    </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                    <p>Toggle Profanity Filter</p>
-                    </TooltipContent>
-                </Tooltip>
-            </div>
-        </TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                        <div className="flex items-center space-x-2">
+                            {profanityFilter ? <Shield className="h-5 w-5 text-primary" /> : <ShieldOff className="h-5 w-5 text-muted-foreground" />}
+                            <Switch
+                            id="profanity-filter"
+                            checked={profanityFilter}
+                            onCheckedChange={handleFilterChange}
+                            />
+                        </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                        <p>Toggle Profanity Filter</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </div>
+            </TooltipProvider>
+
+            {isCreator && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <MoreVertical className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setShowClearConfirm(true)}>
+                    <Eraser className="mr-2 h-4 w-4" />
+                    <span>Clear History</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => setShowDeleteConfirm(true)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    <span>Delete Room</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+        </div>
       </header>
       
       <main className="flex-1 overflow-hidden">
@@ -255,6 +325,36 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             </div>
         </div>
       </main>
+
+      <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently clear the entire chat history for everyone in this room. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearHistory}>Clear History</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this chat room and all its messages. All users will be disconnected. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteRoom} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete Room</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
