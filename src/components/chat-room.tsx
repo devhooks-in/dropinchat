@@ -65,6 +65,35 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
   const [isUsersSheetOpen, setIsUsersSheetOpen] = useState(false);
   const [newRoomNameInput, setNewRoomNameInput] = useState('');
   const hasJoined = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  const playNotificationSound = useCallback(() => {
+    // Resume context if it's suspended (autoplay policy)
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume();
+    }
+    
+    const audioContext = audioContextRef.current;
+    if (!audioContext) return;
+
+    try {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5 note
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.5);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+    } catch(e) {
+      console.error("Could not play notification sound", e);
+    }
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
@@ -87,17 +116,23 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
       setIsInitialNamePrompt(true);
       setIsNameModalOpen(true);
     }
+    // Browsers require a user gesture to start audio. We'll create the context here,
+    // and it will be resumed when the notification sound is first played.
+    if (!audioContextRef.current) {
+        try {
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        } catch (e) {
+            console.error("Web Audio API is not supported in this browser");
+        }
+    }
   }, []);
 
+  // Effect for setting up socket connection and listeners that don't depend on state
   useEffect(() => {
     fetch('/api/socket');
 
     const socket = io({ transports: ['websocket'] });
     socketRef.current = socket;
-
-    socket.on('new-message', (message: Message) => {
-      setMessages(prev => [...prev, message]);
-    });
 
     socket.on('user-list-update', (updatedUsers: User[]) => {
       setUsers(updatedUsers);
@@ -138,7 +173,28 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
       socket.disconnect();
     };
   }, [router, toast]);
+  
+  // Effect for handling new messages, which depends on the current username
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    
+    const handleNewMessage = (message: Message) => {
+        setMessages(prev => [...prev, message]);
+        // Play sound if the tab is not visible and the message is from another user
+        if (document.hidden && message.user !== username && message.type === 'user') {
+            playNotificationSound();
+        }
+    };
 
+    socket.on('new-message', handleNewMessage);
+
+    return () => {
+        socket.off('new-message', handleNewMessage);
+    };
+  }, [username, playNotificationSound]);
+
+  // Effect for joining the room once the username is available
   useEffect(() => {
     const socket = socketRef.current;
     if (socket && username && !hasJoined.current) {
