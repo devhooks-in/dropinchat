@@ -44,6 +44,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
   const [username, setUsername] = useState<string | null>(null);
   const [currentRoomName, setCurrentRoomName] = useState(roomName || roomId);
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
+  const [nameModalConfig, setNameModalConfig] = useState({ title: '', description: '' });
   const [messages, setMessages] = useState<Message[]>([]);
   const [users, setUsers] = useState<string[]>([]);
   const [input, setInput] = useState('');
@@ -70,12 +71,15 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     if (storedName) {
       setUsername(storedName);
     } else {
+      setNameModalConfig({
+        title: 'Welcome to TempTalk',
+        description: 'Please enter your name to join the chat.',
+      });
       setIsNameModalOpen(true);
     }
   }, []);
 
   useEffect(() => {
-    // Initialize socket server and connection once
     fetch('/api/socket');
 
     const socket = io({ transports: ['websocket'] });
@@ -135,16 +139,17 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
         setUsers(data.users);
         setIsCreator(data.creatorId === socket.id);
         setCurrentRoomName(data.roomName);
+        scrollToBottom();
       });
     }
-  }, [roomId, username, roomName]);
+  }, [roomId, username, roomName, scrollToBottom]);
   
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
   const handleNameSubmit = (name: string) => {
-    if (username) { // This is a name change
+    if (username) {
       socketRef.current?.emit('change-name', roomId, name);
     }
     setUsername(name);
@@ -199,10 +204,23 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     }
   };
 
+  const openChangeNameModal = () => {
+    setNameModalConfig({
+        title: 'Change Your Name',
+        description: 'Enter a new name that will be visible to everyone.',
+    });
+    setIsNameModalOpen(true);
+  };
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      <NamePromptDialog isOpen={isNameModalOpen} onNameSubmit={handleNameSubmit} />
+      <NamePromptDialog 
+        isOpen={isNameModalOpen} 
+        onNameSubmit={handleNameSubmit}
+        title={nameModalConfig.title}
+        description={nameModalConfig.description}
+        initialValue={username || ''}
+      />
 
       <header className="flex items-center justify-between border-b p-3 shadow-sm">
         <Button variant="ghost" size="icon" onClick={() => router.push('/')}>
@@ -284,7 +302,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
       
       <main className="flex-1 overflow-hidden">
         <div className="h-full flex flex-col-reverse md:flex-row">
-            <Card className="w-full md:w-64 border-0 border-r rounded-none">
+            <Card className="w-full md:w-64 border-0 border-r rounded-none shrink-0">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-base"><Users className="h-5 w-5" /> Online Users</CardTitle>
                 </CardHeader>
@@ -297,7 +315,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                                 </Avatar>
                                 <span className="font-medium truncate">{user} {user === username && '(You)'}</span>
                                 {user === username && (
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto flex-shrink-0" onClick={() => setIsNameModalOpen(true)}>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto flex-shrink-0" onClick={openChangeNameModal}>
                                         <Pencil className="h-4 w-4" />
                                     </Button>
                                 )}

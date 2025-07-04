@@ -38,13 +38,28 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
     const room = rooms.get(roomId);
     return room ? Array.from(room.users.values()) : [];
   };
+  
+  const sendSystemMessage = (roomId: string, text: string) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+    
+    const systemMessage: Message = {
+      id: `${Date.now()}-system`,
+      user: 'System',
+      text,
+      timestamp: Date.now(),
+      type: 'system',
+    };
+    room.messages.push(systemMessage);
+    io.to(roomId).emit('new-message', systemMessage);
+  };
+
 
   io.on('connection', socket => {
     let currentRoomId: string | null = null;
 
     socket.on('join-room', (roomId: string, roomName: string | null, username: string) => {
       if (!username) {
-        console.error(`Socket ${socket.id} tried to join room ${roomId} without a valid username.`);
         return;
       }
       
@@ -52,28 +67,16 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
       socket.join(roomId);
 
       if (!rooms.has(roomId)) {
-        rooms.set(roomId, { name: roomName || roomId, users: new Map(), messages: [], creatorId: null });
+        rooms.set(roomId, { name: roomName || roomId, users: new Map(), messages: [], creatorId: socket.id });
       }
       const room = rooms.get(roomId)!;
-      const isNewUser = !room.users.has(socket.id);
+      
+      // Only send "joined" message if they are truly new
+      if (!room.users.has(socket.id)) {
+        sendSystemMessage(roomId, `${username} has joined the room.`);
+      }
       
       room.users.set(socket.id, username);
-
-      if (isNewUser) {
-        if (room.creatorId === null) {
-          room.creatorId = socket.id;
-        }
-
-        const systemMessage: Message = {
-          id: `${Date.now()}-system`,
-          user: 'System',
-          text: `${username} has joined the room.`,
-          timestamp: Date.now(),
-          type: 'system',
-        };
-        room.messages.push(systemMessage);
-        socket.to(roomId).emit('new-message', systemMessage);
-      }
 
       socket.emit('room-state', {
         messages: room.messages,
@@ -90,16 +93,7 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
       if (room && room.creatorId === socket.id) {
         const username = room.users.get(socket.id) || 'The room owner';
         room.name = newRoomName;
-
-        const systemMessage: Message = {
-          id: `${Date.now()}-system`,
-          user: 'System',
-          text: `${username} changed the room name to "${newRoomName}".`,
-          timestamp: Date.now(),
-          type: 'system',
-        };
-        room.messages.push(systemMessage);
-        io.to(roomId).emit('new-message', systemMessage);
+        sendSystemMessage(roomId, `${username} changed the room name to "${newRoomName}".`);
         io.to(roomId).emit('room-name-updated', newRoomName);
       }
     });
@@ -109,16 +103,7 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
         if (room && room.users.has(socket.id)) {
             const oldUsername = room.users.get(socket.id);
             room.users.set(socket.id, newUsername);
-
-            const systemMessage: Message = {
-                id: `${Date.now()}-system`,
-                user: 'System',
-                text: `${oldUsername} is now known as ${newUsername}.`,
-                timestamp: Date.now(),
-                type: 'system',
-            };
-            room.messages.push(systemMessage);
-            io.to(roomId).emit('new-message', systemMessage);
+            sendSystemMessage(roomId, `${oldUsername} is now known as ${newUsername}.`);
             io.to(roomId).emit('user-list-update', getRoomUsers(roomId));
         }
     });
@@ -171,39 +156,22 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
           const wasCreator = room.creatorId === socket.id;
           room.users.delete(socket.id);
 
-          if (wasCreator && room.users.size > 0) {
-            const nextCreatorSocketId = room.users.keys().next().value;
-            room.creatorId = nextCreatorSocketId;
-            const newCreatorUsername = room.users.get(nextCreatorSocketId);
-            
-            const ownerLeftMessage: Message = {
-              id: `${Date.now()}-system`,
-              user: 'System',
-              text: `${username} (the room owner) has left. ${newCreatorUsername} is now the new room owner.`,
-              timestamp: Date.now(),
-              type: 'system',
-            };
-            room.messages.push(ownerLeftMessage);
-            io.to(currentRoomId).emit('new-message', ownerLeftMessage);
+          if (room.users.size === 0) {
+            rooms.delete(currentRoomId);
+            return;
+          }
+          
+          if (wasCreator) {
+            const newCreatorId = room.users.keys().next().value;
+            room.creatorId = newCreatorId;
+            const newCreatorUsername = room.users.get(newCreatorId);
+            sendSystemMessage(currentRoomId, `${username} (the room owner) has left. ${newCreatorUsername} is now the new room owner.`);
             io.to(currentRoomId).emit('creator-update', room.creatorId);
-
           } else if (username) {
-             const userLeftMessage: Message = {
-                id: `${Date.now()}-system`,
-                user: 'System',
-                text: `${username} has left the room.`,
-                timestamp: Date.now(),
-                type: 'system',
-             };
-             room.messages.push(userLeftMessage);
-             io.to(currentRoomId).emit('new-message', userLeftMessage);
+             sendSystemMessage(currentRoomId, `${username} has left the room.`);
           }
           
           io.to(currentRoomId).emit('user-list-update', getRoomUsers(currentRoomId));
-
-          if (room.users.size === 0) {
-            rooms.delete(currentRoomId);
-          }
         }
       }
     });

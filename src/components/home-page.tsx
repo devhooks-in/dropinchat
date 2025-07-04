@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { LogIn, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -24,16 +24,34 @@ export default function HomePage() {
     }
   }, []);
 
-  const createRoom = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.value;
+    setUsername(name);
+    // Also save to local storage immediately so it can be picked up
+    // by the chat page even if the user navigates directly.
+    if (name.trim()) {
+      localStorage.setItem('temptalk-username', name.trim());
+    } else {
+      localStorage.removeItem('temptalk-username');
+    }
+  };
+
+  const validateUsername = () => {
     if (username.trim().length < 3) {
       toast({
         title: 'Invalid Name',
         description: 'Your name must be at least 3 characters long.',
         variant: 'destructive',
       });
-      return;
+      return false;
     }
+    return true;
+  };
+
+  const createRoom = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!validateUsername()) return;
+
     if (!newRoomName.trim()) {
       toast({
         title: 'Error',
@@ -42,23 +60,15 @@ export default function HomePage() {
       });
       return;
     }
-    localStorage.setItem('temptalk-username', username.trim());
     const newRoomId = Math.random().toString(36).substring(2, 9);
     router.push(`/chat/${newRoomId}?name=${encodeURIComponent(newRoomName.trim())}`);
   };
 
   const joinRoom = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (username.trim().length < 3) {
-      toast({
-        title: 'Invalid Name',
-        description: 'Your name must be at least 3 characters long.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    if (!validateUsername()) return;
+    
     if (joinRoomId.trim()) {
-      localStorage.setItem('temptalk-username', username.trim());
       router.push(`/chat/${joinRoomId.trim()}`);
     } else {
       toast({
@@ -74,16 +84,16 @@ export default function HomePage() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold font-headline">TempTalk</CardTitle>
-          <p className="text-muted-foreground">Ephemeral real-time chat rooms</p>
+          <CardDescription>Ephemeral real-time chat rooms</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 p-6">
           <div className="space-y-2">
             <Label htmlFor="username">Your Name</Label>
             <Input
               id="username"
-              placeholder="Enter your name"
+              placeholder="Enter your name (min. 3 characters)"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={handleUsernameChange}
               className="bg-card"
             />
           </div>
@@ -130,7 +140,7 @@ export default function HomePage() {
         </CardContent>
       </Card>
       <footer className="mt-8 text-center text-sm text-muted-foreground">
-        <p>Messages are deleted when the last user leaves a room.</p>
+        <p>Chat rooms and messages are deleted when the last user leaves.</p>
       </footer>
     </main>
   );

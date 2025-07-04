@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -16,11 +16,26 @@ import { useToast } from '@/hooks/use-toast';
 interface NamePromptDialogProps {
   isOpen: boolean;
   onNameSubmit: (name: string) => void;
+  title?: string;
+  description?: string;
+  initialValue?: string;
 }
 
-export default function NamePromptDialog({ isOpen, onNameSubmit }: NamePromptDialogProps) {
-  const [name, setName] = useState('');
+export default function NamePromptDialog({ 
+  isOpen, 
+  onNameSubmit, 
+  title = "Welcome", 
+  description = "Please enter your name.",
+  initialValue = ''
+}: NamePromptDialogProps) {
+  const [name, setName] = useState(initialValue);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (isOpen) {
+      setName(initialValue);
+    }
+  }, [isOpen, initialValue]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -39,8 +54,8 @@ export default function NamePromptDialog({ isOpen, onNameSubmit }: NamePromptDia
     <Dialog open={isOpen}>
       <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle>Welcome to TempTalk</DialogTitle>
-          <DialogDescription>Please enter your name to join the chat.</DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
@@ -54,7 +69,7 @@ export default function NamePromptDialog({ isOpen, onNameSubmit }: NamePromptDia
             />
           </div>
           <DialogFooter>
-            <Button type="submit">Join Chat</Button>
+            <Button type="submit">Save</Button>
           </DialogFooter>
         </form>
       </DialogContent>
