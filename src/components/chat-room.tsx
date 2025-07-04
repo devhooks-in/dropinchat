@@ -32,10 +32,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-export default function ChatRoom({ roomId }: { roomId: string }) {
+export default function ChatRoom({ roomId, roomName }: { roomId: string, roomName?: string }) {
   const router = useRouter();
   const { toast } = useToast();
   const [username, setUsername] = useState<string | null>(null);
+  const [currentRoomName, setCurrentRoomName] = useState(roomName || roomId);
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [users, setUsers] = useState<string[]>([]);
@@ -101,15 +102,16 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   useEffect(() => {
     const socket = socketRef.current;
     if (socket && username) {
-      socket.emit('join-room', roomId, username);
+      socket.emit('join-room', roomId, roomName, username);
 
-      socket.once('room-state', (data: { messages: Message[], users: string[], creatorId: string | null }) => {
+      socket.once('room-state', (data: { messages: Message[], users: string[], creatorId: string | null, roomName: string }) => {
         setMessages(data.messages);
         setUsers(data.users);
         setIsCreator(data.creatorId === socket.id);
+        setCurrentRoomName(data.roomName);
       });
     }
-  }, [roomId, username]);
+  }, [roomId, username, roomName]);
   
   useEffect(() => {
     scrollToBottom();
@@ -163,7 +165,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
           <ArrowLeft />
         </Button>
         <div className="text-center">
-            <h1 className="text-lg font-bold font-headline">Room: {roomId}</h1>
+            <h1 className="text-lg font-bold font-headline">{currentRoomName} <span className="text-sm font-normal text-muted-foreground">({roomId})</span></h1>
             <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
                 <Users className="h-4 w-4" /> {users.length} user{users.length !== 1 ? 's' : ''} online
             </div>

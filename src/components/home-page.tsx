@@ -8,21 +8,32 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { LogIn, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Label } from '@/components/ui/label';
 
 export default function HomePage() {
   const router = useRouter();
-  const [roomId, setRoomId] = useState('');
+  const [joinRoomId, setJoinRoomId] = useState('');
+  const [newRoomName, setNewRoomName] = useState('');
   const { toast } = useToast();
 
-  const createRoom = () => {
+  const createRoom = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!newRoomName.trim()) {
+        toast({
+            title: "Error",
+            description: "Please enter a room name.",
+            variant: "destructive",
+        });
+        return;
+    }
     const newRoomId = Math.random().toString(36).substring(2, 9);
-    router.push(`/chat/${newRoomId}`);
+    router.push(`/chat/${newRoomId}?name=${encodeURIComponent(newRoomName.trim())}`);
   };
 
   const joinRoom = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (roomId.trim()) {
-      router.push(`/chat/${roomId.trim()}`);
+    if (joinRoomId.trim()) {
+      router.push(`/chat/${joinRoomId.trim()}`);
     } else {
       toast({
         title: "Error",
@@ -40,10 +51,22 @@ export default function HomePage() {
           <p className="text-muted-foreground">Ephemeral real-time chat rooms</p>
         </CardHeader>
         <CardContent className="space-y-6 p-6">
-          <Button onClick={createRoom} className="w-full" size="lg">
-            <PlusCircle className="mr-2 h-5 w-5" />
-            Create a New Chat Room
-          </Button>
+          <form onSubmit={createRoom} className="space-y-4">
+            <div className="space-y-2">
+                <Label htmlFor="roomName">Create a New Chat Room</Label>
+                <Input
+                    id="roomName"
+                    placeholder="Enter a name for your room"
+                    value={newRoomName}
+                    onChange={(e) => setNewRoomName(e.target.value)}
+                    className="bg-card"
+                />
+            </div>
+            <Button type="submit" className="w-full" size="lg">
+              <PlusCircle className="mr-2 h-5 w-5" />
+              Create Room
+            </Button>
+          </form>
 
           <div className="flex items-center space-x-2">
             <Separator className="flex-1" />
@@ -53,14 +76,12 @@ export default function HomePage() {
 
           <form onSubmit={joinRoom} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="roomId" className="text-sm font-medium text-foreground">
-                Join an Existing Room
-              </label>
+              <Label htmlFor="joinRoomId">Join an Existing Room</Label>
               <Input
-                id="roomId"
+                id="joinRoomId"
                 placeholder="Enter Room ID"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
+                value={joinRoomId}
+                onChange={(e) => setJoinRoomId(e.target.value)}
                 className="bg-card"
               />
             </div>

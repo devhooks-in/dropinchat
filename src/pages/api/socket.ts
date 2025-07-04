@@ -17,6 +17,7 @@ interface NextApiResponseWithSocket extends NextApiResponse {
 }
 
 interface Room {
+  name: string;
   users: Map<string, string>; // socket.id -> username
   messages: Message[];
   creatorId: string | null;
@@ -41,12 +42,12 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
   io.on('connection', socket => {
     let currentRoomId: string | null = null;
 
-    socket.on('join-room', (roomId: string, username: string) => {
+    socket.on('join-room', (roomId: string, roomName: string | null, username: string) => {
       currentRoomId = roomId;
       socket.join(roomId);
 
       if (!rooms.has(roomId)) {
-        rooms.set(roomId, { users: new Map(), messages: [], creatorId: null });
+        rooms.set(roomId, { name: roomName || roomId, users: new Map(), messages: [], creatorId: null });
       }
       const room = rooms.get(roomId)!;
 
@@ -70,6 +71,7 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
         messages: room.messages,
         users: getRoomUsers(roomId),
         creatorId: room.creatorId,
+        roomName: room.name,
       });
 
       // Notify others in the room
