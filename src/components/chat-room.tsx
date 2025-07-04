@@ -379,43 +379,33 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                 <Users className="h-5 w-5" />
                 <span className="sr-only">Show users</span>
             </Button>
-            <TooltipProvider>
-                {canShare && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="hover:bg-card hover:text-foreground dark:hover:bg-secondary" onClick={handleShare}>
-                        <Share2 className="h-5 w-5" />
-                        <span className="sr-only">Share Room</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Share Room</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="hover:bg-card hover:text-foreground dark:hover:bg-secondary" onClick={handleCopyLink}>
-                            <Link className="h-5 w-5" />
-                            <span className="sr-only">Copy Room Link</span>
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Copy Room Link</p>
-                    </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="hover:bg-card hover:text-foreground dark:hover:bg-secondary" onClick={handleCopyId}>
-                            <Hash className="h-5 w-5" />
-                            <span className="sr-only">Copy Room ID</span>
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Copy Room ID</p>
-                    </TooltipContent>
-                </Tooltip>
 
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="hover:bg-card hover:text-foreground dark:hover:bg-secondary">
+                        <Share2 className="h-5 w-5" />
+                        <span className="sr-only">Share</span>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    {canShare && (
+                        <DropdownMenuItem onSelect={handleShare}>
+                            <Share2 className="mr-2 h-4 w-4" />
+                            <span>Share via...</span>
+                        </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onSelect={handleCopyLink}>
+                        <Link className="mr-2 h-4 w-4" />
+                        <span>Copy Room Link</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={handleCopyId}>
+                        <Hash className="mr-2 h-4 w-4" />
+                        <span>Copy Room ID</span>
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+            
+            <TooltipProvider>
                 {isCreator && (
                     <>
                         <Tooltip>
