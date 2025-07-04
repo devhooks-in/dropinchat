@@ -79,6 +79,25 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
       io.to(roomId).emit('user-list-update', getRoomUsers(roomId));
     });
 
+    socket.on('update-room-name', (roomId: string, newRoomName: string) => {
+      const room = rooms.get(roomId);
+      if (room && room.creatorId === socket.id) {
+        const username = room.users.get(socket.id) || 'The room owner';
+        room.name = newRoomName;
+
+        const systemMessage: Message = {
+          id: `${Date.now()}-system`,
+          user: 'System',
+          text: `${username} changed the room name to "${newRoomName}".`,
+          timestamp: Date.now(),
+          type: 'system',
+        };
+        room.messages.push(systemMessage);
+        io.to(roomId).emit('new-message', systemMessage);
+        io.to(roomId).emit('room-name-updated', newRoomName);
+      }
+    });
+
     socket.on('change-name', (roomId: string, newUsername: string) => {
         const room = rooms.get(roomId);
         if (room && room.users.has(socket.id)) {

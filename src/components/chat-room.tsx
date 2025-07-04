@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Users, ArrowLeft, ClipboardCopy, MoreVertical, Eraser, Trash2, Pencil, KeyRound, Link } from 'lucide-react';
+import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, KeyRound, Link } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -29,6 +29,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export default function ChatRoom({ roomId, roomName }: { roomId: string, roomName?: string }) {
   const router = useRouter();
@@ -44,6 +52,8 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
   const [isCreator, setIsCreator] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isRenameRoomModalOpen, setIsRenameRoomModalOpen] = useState(false);
+  const [newRoomNameInput, setNewRoomNameInput] = useState('');
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
@@ -101,6 +111,11 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
           description: 'The previous owner left the room.',
         });
       }
+    });
+
+    socket.on('room-name-updated', (newName: string) => {
+        setCurrentRoomName(newName);
+        toast({ title: 'Room Renamed', description: `The room is now called "${newName}".` });
     });
 
     return () => {
@@ -173,6 +188,16 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     socketRef.current?.emit('delete-room', roomId);
   };
 
+  const handleRenameRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newRoomNameInput.trim() && isCreator) {
+        socketRef.current?.emit('update-room-name', roomId, newRoomNameInput.trim());
+        setIsRenameRoomModalOpen(false);
+        setNewRoomNameInput('');
+    }
+  };
+
+
   return (
     <div className="flex h-screen flex-col bg-background">
       <NamePromptDialog isOpen={isNameModalOpen} onNameSubmit={handleNameSubmit} />
@@ -206,6 +231,10 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                 {isCreator && (
                     <>
                         <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => { setNewRoomNameInput(currentRoomName); setIsRenameRoomModalOpen(true); }}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            <span>Rename Room</span>
+                        </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => setShowClearConfirm(true)}>
                             <Eraser className="mr-2 h-4 w-4" />
                             <span>Clear History</span>
@@ -335,6 +364,32 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={isRenameRoomModalOpen} onOpenChange={setIsRenameRoomModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Room</DialogTitle>
+            <DialogDescription>
+              Enter a new name for this room. This will be visible to everyone.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleRenameRoom}>
+            <div className="py-4">
+              <Input
+                id="new-room-name"
+                value={newRoomNameInput}
+                onChange={(e) => setNewRoomNameInput(e.target.value)}
+                placeholder="New room name"
+                autoFocus
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="secondary" onClick={() => setIsRenameRoomModalOpen(false)}>Cancel</Button>
+              <Button type="submit">Save</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
