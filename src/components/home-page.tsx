@@ -49,7 +49,16 @@ export default function HomePage() {
 
   const joinRoom = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (username.trim().length < 3) {
+      toast({
+        title: 'Invalid Name',
+        description: 'Your name must be at least 3 characters long.',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (joinRoomId.trim()) {
+      localStorage.setItem('temptalk-username', username.trim());
       router.push(`/chat/${joinRoomId.trim()}`);
     } else {
       toast({
@@ -68,17 +77,20 @@ export default function HomePage() {
           <p className="text-muted-foreground">Ephemeral real-time chat rooms</p>
         </CardHeader>
         <CardContent className="space-y-6 p-6">
+          <div className="space-y-2">
+            <Label htmlFor="username">Your Name</Label>
+            <Input
+              id="username"
+              placeholder="Enter your name"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="bg-card"
+            />
+          </div>
+          
+          <Separator />
+
           <form onSubmit={createRoom} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username">Your Name</Label>
-              <Input
-                id="username"
-                placeholder="Enter your name"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="bg-card"
-              />
-            </div>
             <div className="space-y-2">
               <Label htmlFor="roomName">New Room Name</Label>
               <Input
@@ -96,9 +108,7 @@ export default function HomePage() {
           </form>
 
           <div className="flex items-center space-x-2">
-            <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground">OR</span>
-            <Separator className="flex-1" />
+            <span className="text-xs uppercase text-muted-foreground">Or</span>
           </div>
 
           <form onSubmit={joinRoom} className="space-y-4">
