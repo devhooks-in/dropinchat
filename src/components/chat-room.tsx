@@ -335,7 +335,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
 
       <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-4">
         <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push('/')}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted" onClick={() => router.push('/')}>
                 <ArrowLeft className="h-5 w-5" />
                 <span className="sr-only">Back to Home</span>
             </Button>
@@ -346,14 +346,14 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
         </div>
 
         <div className="flex items-center gap-1">
-            <Button variant="ghost" className="md:hidden" size="icon" onClick={() => setIsUsersSheetOpen(true)}>
+            <Button variant="ghost" className="md:hidden hover:bg-muted" size="icon" onClick={() => setIsUsersSheetOpen(true)}>
                 <Users className="h-5 w-5" />
                 <span className="sr-only">Show users</span>
             </Button>
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" onClick={handleCopyLink}>
+                        <Button variant="ghost" size="icon" className="hover:bg-muted" onClick={handleCopyLink}>
                             <Link className="h-5 w-5" />
                             <span className="sr-only">Copy Room Link</span>
                         </Button>
@@ -364,7 +364,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" onClick={handleCopyId}>
+                        <Button variant="ghost" size="icon" className="hover:bg-muted" onClick={handleCopyId}>
                             <KeyRound className="h-5 w-5" />
                             <span className="sr-only">Copy Room ID</span>
                         </Button>
@@ -378,7 +378,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                     <>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" onClick={() => setShowClearConfirm(true)}>
+                                <Button variant="ghost" size="icon" className="hover:bg-muted" onClick={() => setShowClearConfirm(true)}>
                                     <Eraser className="h-5 w-5" />
                                     <span className="sr-only">Clear History</span>
                                 </Button>
@@ -404,7 +404,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
             
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
+                    <Button variant="ghost" size="icon" className="hover:bg-muted">
                         <MoreVertical className="h-5 w-5" />
                         <span className="sr-only">More Options</span>
                     </Button>
