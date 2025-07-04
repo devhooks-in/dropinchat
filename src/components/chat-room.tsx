@@ -233,7 +233,11 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     <div className="flex h-screen flex-col bg-background">
       <NamePromptDialog 
         isOpen={isNameModalOpen} 
-        onOpenChange={setIsNameModalOpen}
+        onOpenChange={(open) => {
+            if (!isInitialNamePrompt) {
+                setIsNameModalOpen(open);
+            }
+        }}
         onNameSubmit={handleNameSubmit}
         title={nameModalConfig.title}
         description={nameModalConfig.description}
@@ -241,21 +245,23 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
         isInitialPrompt={isInitialNamePrompt}
       />
 
-      <header className="flex items-center justify-between border-b p-3 shadow-sm">
-        <Button variant="ghost" size="icon" onClick={() => router.push('/')}>
-          <ArrowLeft />
-        </Button>
-        <div className="text-center">
-            <h1 className="text-lg font-bold font-headline">{currentRoomName}</h1>
-            <p className="text-sm text-muted-foreground">({roomId})</p>
-            <div className="hidden md:flex items-center justify-center gap-1 text-sm text-muted-foreground">
-                <Users className="h-4 w-4" /> {users.length} user{users.length !== 1 ? 's' : ''} online
-            </div>
-            <Button variant="ghost" className="md:hidden -my-2" onClick={() => setIsUsersSheetOpen(true)}>
-                <Users className="h-4 w-4 mr-2" /> {users.length}
+      <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-4">
+        <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push('/')}>
+                <ArrowLeft className="h-5 w-5" />
+                <span className="sr-only">Back to Home</span>
             </Button>
+            <div>
+                <h1 className="truncate text-base font-bold font-headline">{currentRoomName}</h1>
+                <p className="text-xs text-muted-foreground">ID: {roomId}</p>
+            </div>
         </div>
-        <div className="flex items-center space-x-1">
+
+        <div className="flex items-center gap-1">
+            <Button variant="ghost" className="md:hidden" size="icon" onClick={() => setIsUsersSheetOpen(true)}>
+                <Users className="h-5 w-5" />
+                <span className="sr-only">Show users</span>
+            </Button>
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -306,32 +312,34 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                         </Tooltip>
                     </>
                 )}
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-5 w-5" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                         {isCreator && <DropdownMenuItem onSelect={() => { setNewRoomNameInput(currentRoomName); setIsRenameRoomModalOpen(true); }}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            <span>Rename Room</span>
-                        </DropdownMenuItem>}
-                        <DropdownMenuItem onSelect={openChangeNameModal}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            <span>Change Name</span>
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
             </TooltipProvider>
+            
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                        <MoreVertical className="h-5 w-5" />
+                        <span className="sr-only">More Options</span>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                     {isCreator && <DropdownMenuItem onSelect={() => { setNewRoomNameInput(currentRoomName); setIsRenameRoomModalOpen(true); }}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        <span>Rename Room</span>
+                    </DropdownMenuItem>}
+                    <DropdownMenuItem onSelect={openChangeNameModal}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        <span>Change Name</span>
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
         </div>
       </header>
       
       <main className="flex-1 overflow-hidden">
         <div className="h-full flex flex-row">
             <Card className="hidden md:flex md:flex-col w-64 border-0 md:border-r rounded-none shrink-0">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base"><Users className="h-5 w-5" /> Online Users</CardTitle>
+                <CardHeader className="h-14 flex-row items-center border-b p-4">
+                    <CardTitle className="flex items-center gap-2 text-base"><Users className="h-5 w-5" /> Online ({users.length})</CardTitle>
                 </CardHeader>
                 <CardContent className="p-2">
                    <UserList users={users} username={username} creatorId={creatorId} onUserTag={handleUserTag} onOpenChangeName={openChangeNameModal} />
@@ -400,9 +408,9 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
 
       <Sheet open={isUsersSheetOpen} onOpenChange={setIsUsersSheetOpen}>
         <SheetContent side="left" className="p-0 flex flex-col">
-            <CardHeader>
+            <CardHeader className="h-14 flex-row items-center border-b p-4">
                 <CardTitle className="flex items-center gap-2 text-base">
-                <Users className="h-5 w-5" /> Online Users
+                <Users className="h-5 w-5" /> Online ({users.length})
                 </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 p-2 overflow-y-auto">
