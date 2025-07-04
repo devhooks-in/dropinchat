@@ -498,7 +498,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                         <div
                           className={`max-w-xs rounded-lg px-3 py-2 md:max-w-md ${
                             msg.type === 'system'
-                              ? 'text-center text-xs text-muted-foreground italic'
+                              ? 'text-center text-[11px] text-muted-foreground italic'
                               : msg.user === username
                               ? 'rounded-br-none bg-user-message text-user-message-foreground'
                               : 'rounded-bl-none bg-secondary text-secondary-foreground'
@@ -522,7 +522,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                             ) : null}
                             
                             {msg.text && <p className={`whitespace-pre-wrap break-words ${msg.type === 'user' ? 'text-base' : ''}`}>{msg.text}</p>}
-                            <p className={`text-xs opacity-70 ${msg.type === 'system' ? '' : msg.user === username ? 'text-user-message-foreground/70' : 'text-secondary-foreground/70 text-left'}`}>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                            <p className={`opacity-70 ${msg.type === 'system' ? '' : `text-xs ${msg.user === username ? 'text-user-message-foreground/70' : 'text-secondary-foreground/70 text-left'}`}`}>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
                         {msg.type === 'user' && msg.user === username && (
                             <Avatar className="h-8 w-8">
