@@ -5,7 +5,7 @@ import PwaInstaller from '@/components/pwa-installer';
 
 export const metadata: Metadata = {
   title: 'TempTalk',
-  description: 'Temporary real-time chat rooms.',
+  description: 'Real-time private chat rooms.',
   manifest: '/manifest.json',
   applicationName: 'TempTalk',
   appleWebApp: {

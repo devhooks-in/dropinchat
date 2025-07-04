@@ -84,7 +84,7 @@ export default function HomePage() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold font-headline">TempTalk</CardTitle>
-          <CardDescription>Ephemeral real-time chat rooms</CardDescription>
+          <CardDescription>Real-time private chat rooms</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 p-6">
           <div className="space-y-2">
@@ -140,7 +140,7 @@ export default function HomePage() {
         </CardContent>
       </Card>
       <footer className="mt-8 text-center text-sm text-muted-foreground">
-        <p>Chat rooms and messages are deleted when the last user leaves.</p>
+        <p>Chat rooms are private. Messages are deleted when the last user leaves.</p>
       </footer>
     </main>
   );
