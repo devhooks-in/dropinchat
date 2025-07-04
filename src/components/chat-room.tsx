@@ -47,6 +47,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
   const [currentRoomName, setCurrentRoomName] = useState(roomName || roomId);
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [nameModalConfig, setNameModalConfig] = useState({ title: '', description: '' });
+  const [isInitialNamePrompt, setIsInitialNamePrompt] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [creatorId, setCreatorId] = useState<string | null>(null);
@@ -79,6 +80,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
         title: 'Welcome to DropInChat',
         description: 'Please enter your name to join the chat.',
       });
+      setIsInitialNamePrompt(true);
       setIsNameModalOpen(true);
     }
   }, []);
@@ -161,6 +163,9 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     setUsername(name);
     localStorage.setItem('dropinchat-username', name);
     setIsNameModalOpen(false);
+    if (isInitialNamePrompt) {
+      setIsInitialNamePrompt(false);
+    }
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -228,10 +233,12 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     <div className="flex h-screen flex-col bg-background">
       <NamePromptDialog 
         isOpen={isNameModalOpen} 
+        onOpenChange={setIsNameModalOpen}
         onNameSubmit={handleNameSubmit}
         title={nameModalConfig.title}
         description={nameModalConfig.description}
         initialValue={username || ''}
+        isInitialPrompt={isInitialNamePrompt}
       />
 
       <header className="flex items-center justify-between border-b p-3 shadow-sm">

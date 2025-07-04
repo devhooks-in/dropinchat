@@ -15,18 +15,22 @@ import { useToast } from '@/hooks/use-toast';
 
 interface NamePromptDialogProps {
   isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
   onNameSubmit: (name: string) => void;
   title?: string;
   description?: string;
   initialValue?: string;
+  isInitialPrompt?: boolean;
 }
 
 export default function NamePromptDialog({ 
   isOpen, 
+  onOpenChange,
   onNameSubmit, 
   title = "Welcome", 
   description = "Please enter your name.",
-  initialValue = ''
+  initialValue = '',
+  isInitialPrompt = false,
 }: NamePromptDialogProps) {
   const [name, setName] = useState(initialValue);
   const { toast } = useToast();
@@ -50,9 +54,23 @@ export default function NamePromptDialog({
     }
   };
 
+  const handleOpenChange = (open: boolean) => {
+    if (isInitialPrompt && !open) {
+      return; // Prevent closing if it's the initial prompt
+    }
+    onOpenChange(open);
+  };
+
   return (
-    <Dialog open={isOpen}>
-      <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => e.preventDefault()}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent 
+        className="sm:max-w-[425px]" 
+        onInteractOutside={(e) => {
+          if (isInitialPrompt) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
