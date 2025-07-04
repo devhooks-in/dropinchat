@@ -546,7 +546,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
       </main>
 
       <Sheet open={isUsersSheetOpen} onOpenChange={setIsUsersSheetOpen}>
-        <SheetContent side="left" className="p-0 flex flex-col">
+        <SheetContent side="left" className="p-0 flex flex-col bg-card">
             <SheetHeader className="h-14 flex-row items-center border-b p-4">
                 <SheetTitle className="flex items-center gap-2 text-base">
                 <Users className="h-5 w-5" /> Online ({users.length})
