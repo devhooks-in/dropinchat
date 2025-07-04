@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -503,9 +504,9 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                                     </a>
                                 </div>
                             ) : msg.attachment ? (
-                                <a href={msg.attachment.data} download={msg.attachment.name} className="flex items-center gap-2 my-2 p-2 rounded-md bg-background/20 hover:bg-background/40">
-                                    <FileText className="h-6 w-6 flex-shrink-0" />
-                                    <div className="min-w-0 flex-1">
+                                <a href={msg.attachment.data} download={msg.attachment.name} className="grid grid-cols-[auto_1fr] items-center gap-2 my-2 p-2 rounded-md bg-background/20 hover:bg-background/40">
+                                    <FileText className="h-6 w-6" />
+                                    <div className="min-w-0">
                                         <p className="truncate">{msg.attachment.name}</p>
                                     </div>
                                 </a>
@@ -526,17 +527,17 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
 
                 <div className="border-t p-4 bg-background">
                     {attachment && (
-                      <div className="mb-2 flex items-center gap-2 rounded-md border bg-card p-2">
+                      <div className="mb-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-md border bg-card p-2">
                         {attachment.type.startsWith('image/') ? (
-                            <img src={attachment.data} alt="Preview" className="h-12 w-12 flex-shrink-0 rounded-md object-cover" />
+                            <img src={attachment.data} alt="Preview" className="h-12 w-12 rounded-md object-cover" />
                         ): (
-                            <FileText className="h-8 w-8 flex-shrink-0 text-muted-foreground" />
+                            <FileText className="h-8 w-8 text-muted-foreground" />
                         )}
-                        <div className="flex-1 min-w-0">
+                        <div className="min-w-0">
                           <p className="truncate text-sm font-medium">{attachment.name}</p>
                           <p className="text-xs text-muted-foreground">{ (attachment.data.length / 1024).toFixed(2) } KB</p>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => setAttachment(null)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setAttachment(null)}>
                             <X className="h-4 w-4" />
                         </Button>
                       </div>
