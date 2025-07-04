@@ -1,0 +1,238 @@
+'use client';
+
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { io, type Socket } from 'socket.io-client';
+import { useRouter } from 'next/navigation';
+import { filterProfanity } from '@/ai/flows/filter-profanity';
+import type { Message } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Send, Shield, ShieldOff, Users, ArrowLeft } from 'lucide-react';
+import NamePromptDialog from './name-prompt-dialog';
+import { useToast } from '@/hooks/use-toast';
+
+export default function ChatRoom({ roomId }: { roomId: string }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [username, setUsername] = useState<string | null>(null);
+  const [isNameModalOpen, setIsNameModalOpen] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [users, setUsers] = useState<string[]>([]);
+  const [input, setInput] = useState('');
+  const [profanityFilter, setProfanityFilter] = useState(true);
+  const socketRef = useRef<Socket | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = useCallback(() => {
+    setTimeout(() => {
+        const scrollViewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
+        if (scrollViewport) {
+          scrollViewport.scrollTop = scrollViewport.scrollHeight;
+        }
+    }, 100);
+  }, []);
+
+  useEffect(() => {
+    const storedName = localStorage.getItem('temptalk-username');
+    if (storedName) {
+      setUsername(storedName);
+    } else {
+      setIsNameModalOpen(true);
+    }
+
+    const storedFilter = localStorage.getItem('temptalk-profanity-filter');
+    if (storedFilter) {
+      setProfanityFilter(JSON.parse(storedFilter));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (username) {
+      const socket = io({ transports: ['websocket'] });
+      socketRef.current = socket;
+
+      socket.on('connect', () => {
+        fetch('/api/socket'); // Ensure socket handler is initialized
+        socket.emit('join-room', roomId, username);
+      });
+
+      socket.on('room-state', (initialMessages: Message[], initialUsers: string[]) => {
+        setMessages(initialMessages);
+        setUsers(initialUsers);
+        scrollToBottom();
+      });
+
+      socket.on('new-message', (message: Message) => {
+        setMessages(prev => [...prev, message]);
+        scrollToBottom();
+      });
+
+      socket.on('user-list-update', (updatedUsers: string[]) => {
+        setUsers(updatedUsers);
+      });
+      
+      socket.on('disconnect', () => {
+        toast({ title: 'Disconnected', description: 'You have been disconnected from the server.' });
+      });
+
+      return () => {
+        socket.disconnect();
+      };
+    }
+  }, [roomId, username, toast, scrollToBottom]);
+
+  const handleNameSubmit = (name: string) => {
+    setUsername(name);
+    localStorage.setItem('temptalk-username', name);
+    setIsNameModalOpen(false);
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (input.trim() && username) {
+      let textToSend = input;
+      if (profanityFilter) {
+        try {
+          const result = await filterProfanity({ text: input });
+          textToSend = result.filteredText;
+        } catch (error) {
+          console.error('Profanity filter error:', error);
+          toast({
+            title: "AI Error",
+            description: "Could not apply profanity filter.",
+            variant: "destructive",
+          });
+        }
+      }
+      
+      socketRef.current?.emit('send-message', {
+        roomId,
+        message: { user: username, text: textToSend },
+      });
+      setInput('');
+    }
+  };
+
+  const handleFilterChange = (checked: boolean) => {
+    setProfanityFilter(checked);
+    localStorage.setItem('temptalk-profanity-filter', JSON.stringify(checked));
+  };
+  
+  const getInitials = (name: string) => name.charAt(0).toUpperCase();
+
+  return (
+    <div className="flex h-screen flex-col bg-background">
+      <NamePromptDialog isOpen={isNameModalOpen} onNameSubmit={handleNameSubmit} />
+
+      <header className="flex items-center justify-between border-b p-3 shadow-sm">
+        <Button variant="ghost" size="icon" onClick={() => router.push('/')}>
+          <ArrowLeft />
+        </Button>
+        <div className="text-center">
+            <h1 className="text-lg font-bold font-headline">Room: {roomId}</h1>
+            <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
+                <Users className="h-4 w-4" /> {users.length} user{users.length !== 1 ? 's' : ''} online
+            </div>
+        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center space-x-2">
+                {profanityFilter ? <Shield className="h-5 w-5 text-primary" /> : <ShieldOff className="h-5 w-5 text-muted-foreground" />}
+                <Switch
+                  id="profanity-filter"
+                  checked={profanityFilter}
+                  onCheckedChange={handleFilterChange}
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Toggle Profanity Filter</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </header>
+      
+      <main className="flex-1 overflow-hidden">
+        <div className="h-full flex flex-col-reverse md:flex-row">
+            <Card className="w-full md:w-64 border-0 border-r rounded-none">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base"><Users className="h-5 w-5" /> Online Users</CardTitle>
+                </CardHeader>
+                <CardContent className="p-2">
+                    <ul className="space-y-2">
+                        {users.map((user, i) => (
+                            <li key={`${user}-${i}`} className="flex items-center gap-2 text-sm p-2 rounded-md">
+                                <Avatar className="h-8 w-8">
+                                    <AvatarFallback>{getInitials(user)}</AvatarFallback>
+                                </Avatar>
+                                <span className="font-medium">{user} {user === username && '(You)'}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </CardContent>
+            </Card>
+
+            <div className="flex-1 flex flex-col h-full">
+                <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
+                  <div className="space-y-4">
+                    {messages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex items-end gap-2 ${
+                          msg.type === 'system'
+                            ? 'justify-center'
+                            : msg.user === username
+                            ? 'justify-end'
+                            : 'justify-start'
+                        }`}
+                      >
+                        {msg.type === 'user' && msg.user !== username && (
+                            <Avatar className="h-8 w-8">
+                                <AvatarFallback>{getInitials(msg.user)}</AvatarFallback>
+                            </Avatar>
+                        )}
+                        <div
+                          className={`max-w-xs rounded-lg px-3 py-2 md:max-w-md ${
+                            msg.type === 'system'
+                              ? 'text-center text-xs text-muted-foreground italic'
+                              : msg.user === username
+                              ? 'rounded-br-none bg-primary text-primary-foreground'
+                              : 'rounded-bl-none bg-secondary text-secondary-foreground'
+                          }`}
+                        >
+                            {msg.type === 'user' && msg.user !== username && <p className="text-xs font-bold">{msg.user}</p>}
+                            <p className="text-base whitespace-pre-wrap break-words">{msg.text}</p>
+                            <p className={`text-xs opacity-70 ${msg.user === username ? 'text-right' : 'text-left'}`}>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+
+                <div className="border-t p-4 bg-background">
+                  <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+                    <Input
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder="Type a message..."
+                      className="flex-1 bg-card"
+                      autoComplete="off"
+                    />
+                    <Button type="submit" size="icon" disabled={!input.trim()}>
+                      <Send className="h-5 w-5" />
+                    </Button>
+                  </form>
+                </div>
+            </div>
+        </div>
+      </main>
+    </div>
+  );
+}
