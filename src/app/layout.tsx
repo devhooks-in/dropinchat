@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     telephone: false,
   },
   icons: {
-    apple: '/icons/icon-192x192.svg',
+    apple: '/icons/web-app-manifest-192x192.png',
   },
 };
 
