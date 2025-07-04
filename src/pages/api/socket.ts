@@ -43,6 +43,11 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
     let currentRoomId: string | null = null;
 
     socket.on('join-room', (roomId: string, roomName: string | null, username: string) => {
+      if (!username) {
+        console.error(`Socket ${socket.id} tried to join room ${roomId} without a valid username.`);
+        return;
+      }
+      
       currentRoomId = roomId;
       socket.join(roomId);
 
@@ -50,23 +55,26 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
         rooms.set(roomId, { name: roomName || roomId, users: new Map(), messages: [], creatorId: null });
       }
       const room = rooms.get(roomId)!;
-
-      // Set creator on first join
-      if (room.creatorId === null) {
-        room.creatorId = socket.id;
-      }
+      const isNewUser = !room.users.has(socket.id);
+      
       room.users.set(socket.id, username);
 
-      const systemMessage: Message = {
-        id: `${Date.now()}-system`,
-        user: 'System',
-        text: `${username} has joined the room.`,
-        timestamp: Date.now(),
-        type: 'system',
-      };
-      room.messages.push(systemMessage);
+      if (isNewUser) {
+        if (room.creatorId === null) {
+          room.creatorId = socket.id;
+        }
 
-      // Emit room state to the joining user
+        const systemMessage: Message = {
+          id: `${Date.now()}-system`,
+          user: 'System',
+          text: `${username} has joined the room.`,
+          timestamp: Date.now(),
+          type: 'system',
+        };
+        room.messages.push(systemMessage);
+        socket.to(roomId).emit('new-message', systemMessage);
+      }
+
       socket.emit('room-state', {
         messages: room.messages,
         users: getRoomUsers(roomId),
@@ -74,8 +82,6 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
         roomName: room.name,
       });
 
-      // Notify others in the room
-      socket.to(roomId).emit('new-message', systemMessage);
       io.to(roomId).emit('user-list-update', getRoomUsers(roomId));
     });
 
@@ -152,7 +158,6 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
       const room = rooms.get(roomId);
       if (room && room.creatorId === socket.id) {
         io.to(roomId).emit('room-deleted');
-        // Disconnect all sockets in the room, which will trigger disconnect event for each
         io.in(roomId).disconnectSockets(true);
         rooms.delete(roomId);
       }
