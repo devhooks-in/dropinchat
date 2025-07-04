@@ -54,6 +54,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isRenameRoomModalOpen, setIsRenameRoomModalOpen] = useState(false);
   const [newRoomNameInput, setNewRoomNameInput] = useState('');
+  const hasJoined = useRef(false);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
@@ -125,7 +126,8 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
 
   useEffect(() => {
     const socket = socketRef.current;
-    if (socket && username) {
+    if (socket && username && !hasJoined.current) {
+      hasJoined.current = true;
       socket.emit('join-room', roomId, roomName, username);
 
       socket.once('room-state', (data: { messages: Message[], users: string[], creatorId: string | null, roomName: string }) => {
