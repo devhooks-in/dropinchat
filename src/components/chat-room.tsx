@@ -511,8 +511,8 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                                 </a>
                             ) : null}
                             
-                            {msg.text && <p className={`whitespace-pre-wrap break-words ${msg.type === 'user' ? 'text-base' : ''}`}>{msg.text}</p>}
-                            <p className={`opacity-70 ${msg.type === 'system' ? '' : `text-xs ${msg.user === username ? 'text-user-message-foreground/70' : 'text-secondary-foreground/70 text-left'}`}`}>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                            {msg.text && <p className={`whitespace-pre-wrap break-words ${msg.type === 'user' ? 'text-sm' : ''}`}>{msg.text}</p>}
+                            <p className={`opacity-70 ${msg.type === 'system' ? '' : `text-[11px] ${msg.user === username ? 'text-user-message-foreground/70' : 'text-secondary-foreground/70 text-left'}`}`}>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
                         {msg.type === 'user' && msg.user === username && (
                             <Avatar className="h-8 w-8">
