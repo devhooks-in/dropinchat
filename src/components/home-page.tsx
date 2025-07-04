@@ -18,7 +18,7 @@ export default function HomePage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const storedName = localStorage.getItem('tempchat-username');
+    const storedName = localStorage.getItem('dropinchat-username');
     if (storedName) {
       setUsername(storedName);
     }
@@ -30,9 +30,9 @@ export default function HomePage() {
     // Also save to local storage immediately so it can be picked up
     // by the chat page even if the user navigates directly.
     if (name.trim()) {
-      localStorage.setItem('tempchat-username', name.trim());
+      localStorage.setItem('dropinchat-username', name.trim());
     } else {
-      localStorage.removeItem('tempchat-username');
+      localStorage.removeItem('dropinchat-username');
     }
   };
 
@@ -85,7 +85,7 @@ export default function HomePage() {
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2">
             <MessageSquare className="h-8 w-8 text-primary" />
-            <CardTitle className="text-3xl font-bold font-headline">TempChat</CardTitle>
+            <CardTitle className="text-3xl font-bold font-headline">DropInChat</CardTitle>
           </div>
           <CardDescription>Real-time private chat rooms</CardDescription>
         </CardHeader>

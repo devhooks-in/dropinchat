@@ -1,10 +1,10 @@
 {
-  "name": "TempTalk",
-  "short_name": "TempTalk",
+  "name": "DropInChat",
+  "short_name": "DropInChat",
   "description": "Real-time private chat rooms.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1f2937",
+  "background_color": "#ffffff",
   "theme_color": "#1f2937",
   "icons": [
     {

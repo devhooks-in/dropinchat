@@ -70,12 +70,12 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
   }, []);
 
   useEffect(() => {
-    const storedName = localStorage.getItem('tempchat-username');
+    const storedName = localStorage.getItem('dropinchat-username');
     if (storedName) {
       setUsername(storedName);
     } else {
       setNameModalConfig({
-        title: 'Welcome to TempChat',
+        title: 'Welcome to DropInChat',
         description: 'Please enter your name to join the chat.',
       });
       setIsNameModalOpen(true);
@@ -156,7 +156,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
       socketRef.current?.emit('change-name', roomId, name);
     }
     setUsername(name);
-    localStorage.setItem('tempchat-username', name);
+    localStorage.setItem('dropinchat-username', name);
     setIsNameModalOpen(false);
   };
 
