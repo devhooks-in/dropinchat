@@ -5,3 +5,8 @@ export interface Message {
   timestamp: number;
   type: 'user' | 'system';
 }
+
+export interface User {
+  id: string;
+  name: string;
+}

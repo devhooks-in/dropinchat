@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { useRouter } from 'next/navigation';
-import type { Message } from '@/lib/types';
+import type { Message, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -48,7 +48,8 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [nameModalConfig, setNameModalConfig] = useState({ title: '', description: '' });
   const [messages, setMessages] = useState<Message[]>([]);
-  const [users, setUsers] = useState<string[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [creatorId, setCreatorId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const socketRef = useRef<Socket | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -92,7 +93,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
       setMessages(prev => [...prev, message]);
     });
 
-    socket.on('user-list-update', (updatedUsers: string[]) => {
+    socket.on('user-list-update', (updatedUsers: User[]) => {
       setUsers(updatedUsers);
     });
     
@@ -113,6 +114,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     socket.on('creator-update', (newCreatorId: string) => {
       const amICreator = newCreatorId === socket.id;
       setIsCreator(amICreator);
+      setCreatorId(newCreatorId);
       if (amICreator) {
         toast({
           title: 'You are the new room owner!',
@@ -137,9 +139,10 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
       hasJoined.current = true;
       socket.emit('join-room', roomId, roomName, username);
 
-      socket.once('room-state', (data: { messages: Message[], users: string[], creatorId: string | null, roomName: string }) => {
+      socket.once('room-state', (data: { messages: Message[], users: User[], creatorId: string | null, roomName: string }) => {
         setMessages(data.messages);
         setUsers(data.users);
+        setCreatorId(data.creatorId);
         setIsCreator(data.creatorId === socket.id);
         setCurrentRoomName(data.roomName);
         scrollToBottom();
@@ -215,6 +218,12 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     setIsNameModalOpen(true);
   };
 
+  const handleUserTag = (usernameToTag: string) => {
+    setInput(prevInput => `${prevInput}@${usernameToTag} `);
+    const inputElement = document.querySelector<HTMLInputElement>('form input[type="text"]');
+    inputElement?.focus();
+  };
+
   return (
     <div className="flex h-screen flex-col bg-background">
       <NamePromptDialog 
@@ -230,7 +239,8 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
           <ArrowLeft />
         </Button>
         <div className="text-center">
-            <h1 className="text-lg font-bold font-headline">{currentRoomName} <span className="text-sm font-normal text-muted-foreground">({roomId})</span></h1>
+            <h1 className="text-lg font-bold font-headline">{currentRoomName}</h1>
+            <p className="text-sm text-muted-foreground">({roomId})</p>
             <div className="hidden md:flex items-center justify-center gap-1 text-sm text-muted-foreground">
                 <Users className="h-4 w-4" /> {users.length} user{users.length !== 1 ? 's' : ''} online
             </div>
@@ -317,11 +327,11 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                     <CardTitle className="flex items-center gap-2 text-base"><Users className="h-5 w-5" /> Online Users</CardTitle>
                 </CardHeader>
                 <CardContent className="p-2">
-                   <UserList users={users} username={username} onOpenChangeName={openChangeNameModal} />
+                   <UserList users={users} username={username} creatorId={creatorId} onUserTag={handleUserTag} onOpenChangeName={openChangeNameModal} />
                 </CardContent>
             </Card>
 
-            <div className="flex-1 flex flex-col h-full">
+            <div className="flex-1 flex flex-col h-full bg-white dark:bg-gray-100">
                 <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
                   <div className="space-y-4">
                     {messages.map((msg) => (
@@ -345,11 +355,11 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                             msg.type === 'system'
                               ? 'text-center text-xs text-muted-foreground italic'
                               : msg.user === username
-                              ? 'rounded-br-none bg-primary text-primary-foreground'
-                              : 'rounded-bl-none bg-secondary text-secondary-foreground'
+                              ? 'rounded-br-none bg-secondary text-secondary-foreground'
+                              : 'rounded-bl-none bg-primary text-primary-foreground'
                           }`}
                         >
-                            {msg.type === 'user' && msg.user !== username && <p className="text-xs font-bold">{msg.user}</p>}
+                            {msg.type === 'user' && msg.user !== username && <p className="text-xs font-bold text-primary-foreground">{msg.user}</p>}
                             <p className="text-base whitespace-pre-wrap break-words">{msg.text}</p>
                             <p className={`text-xs opacity-70 ${msg.user === username ? 'text-right' : 'text-left'}`}>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
@@ -389,7 +399,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                 </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 p-2 overflow-y-auto">
-                <UserList users={users} username={username} onOpenChangeName={() => {
+                <UserList users={users} username={username} creatorId={creatorId} onUserTag={handleUserTag} onOpenChangeName={() => {
                     openChangeNameModal();
                     setIsUsersSheetOpen(false);
                 }} />

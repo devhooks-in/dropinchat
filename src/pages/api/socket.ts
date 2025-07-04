@@ -2,7 +2,7 @@ import type { Server as HTTPServer } from 'http';
 import type { Socket as NetSocket } from 'net';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Server as IOServer } from 'socket.io';
-import type { Message } from '@/lib/types';
+import type { Message, User } from '@/lib/types';
 
 interface SocketServer extends HTTPServer {
   io?: IOServer;
@@ -34,9 +34,10 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
   const io = new IOServer(res.socket.server);
   res.socket.server.io = io;
 
-  const getRoomUsers = (roomId: string) => {
+  const getRoomUsers = (roomId: string): User[] => {
     const room = rooms.get(roomId);
-    return room ? Array.from(room.users.values()) : [];
+    if (!room) return [];
+    return Array.from(room.users.entries()).map(([id, name]) => ({ id, name }));
   };
   
   const sendSystemMessage = (roomId: string, text: string) => {
