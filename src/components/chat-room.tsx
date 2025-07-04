@@ -37,7 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function ChatRoom({ roomId, roomName }: { roomId: string, roomName?: string }) {
@@ -408,11 +408,11 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
 
       <Sheet open={isUsersSheetOpen} onOpenChange={setIsUsersSheetOpen}>
         <SheetContent side="left" className="p-0 flex flex-col">
-            <CardHeader className="h-14 flex-row items-center border-b p-4">
-                <CardTitle className="flex items-center gap-2 text-base">
+            <SheetHeader className="h-14 flex-row items-center border-b p-4">
+                <SheetTitle className="flex items-center gap-2 text-base">
                 <Users className="h-5 w-5" /> Online ({users.length})
-                </CardTitle>
-            </CardHeader>
+                </SheetTitle>
+            </SheetHeader>
             <CardContent className="flex-1 p-2 overflow-y-auto">
                 <UserList users={users} username={username} creatorId={creatorId} onUserTag={handleUserTag} onOpenChangeName={() => {
                     openChangeNameModal();
