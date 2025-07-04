@@ -191,7 +191,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
-                  <ClipboardCopy className="h-5 w-5" />
+                  <MoreVertical className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -203,29 +203,21 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                   <KeyRound className="mr-2 h-4 w-4" />
                   <span>Copy Room ID</span>
                 </DropdownMenuItem>
+                {isCreator && (
+                    <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => setShowClearConfirm(true)}>
+                            <Eraser className="mr-2 h-4 w-4" />
+                            <span>Clear History</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setShowDeleteConfirm(true)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            <span>Delete Room</span>
+                        </DropdownMenuItem>
+                    </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
-
-            {isCreator && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <MoreVertical className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => setShowClearConfirm(true)}>
-                    <Eraser className="mr-2 h-4 w-4" />
-                    <span>Clear History</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => setShowDeleteConfirm(true)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    <span>Delete Room</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
         </div>
       </header>
       
