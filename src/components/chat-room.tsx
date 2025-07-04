@@ -7,11 +7,9 @@ import type { Message } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Label } from '@/components/ui/label';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Users, ArrowLeft, ClipboardCopy, MoreVertical, Eraser, Trash2, Pencil } from 'lucide-react';
+import { Send, Users, ArrowLeft, ClipboardCopy, MoreVertical, Eraser, Trash2, Pencil, KeyRound, Link } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -144,6 +142,14 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
       description: "The room link has been copied to your clipboard.",
     });
   };
+
+  const handleCopyId = () => {
+    navigator.clipboard.writeText(roomId);
+    toast({
+      title: "Room ID Copied!",
+      description: "The room ID has been copied to your clipboard.",
+    });
+  };
   
   const getInitials = (name: string) => name ? name.charAt(0).toUpperCase() : '?';
 
@@ -171,19 +177,23 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
             </div>
         </div>
         <div className="flex items-center space-x-2">
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={handleCopyLink}>
-                        <ClipboardCopy className="h-5 w-5" />
-                        <span className="sr-only">Copy Link</span>
-                    </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                    <p>Copy Room Link</p>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <ClipboardCopy className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={handleCopyLink}>
+                  <Link className="mr-2 h-4 w-4" />
+                  <span>Copy Room Link</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleCopyId}>
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  <span>Copy Room ID</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {isCreator && (
               <DropdownMenu>
