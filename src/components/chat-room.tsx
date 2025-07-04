@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, KeyRound, Link } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
+import UserList from './user-list';
 import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
@@ -36,6 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function ChatRoom({ roomId, roomName }: { roomId: string, roomName?: string }) {
@@ -54,6 +56,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isRenameRoomModalOpen, setIsRenameRoomModalOpen] = useState(false);
+  const [isUsersSheetOpen, setIsUsersSheetOpen] = useState(false);
   const [newRoomNameInput, setNewRoomNameInput] = useState('');
   const hasJoined = useRef(false);
 
@@ -228,9 +231,12 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
         </Button>
         <div className="text-center">
             <h1 className="text-lg font-bold font-headline">{currentRoomName} <span className="text-sm font-normal text-muted-foreground">({roomId})</span></h1>
-            <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
+            <div className="hidden md:flex items-center justify-center gap-1 text-sm text-muted-foreground">
                 <Users className="h-4 w-4" /> {users.length} user{users.length !== 1 ? 's' : ''} online
             </div>
+            <Button variant="ghost" className="md:hidden -my-2" onClick={() => setIsUsersSheetOpen(true)}>
+                <Users className="h-4 w-4 mr-2" /> {users.length}
+            </Button>
         </div>
         <div className="flex items-center space-x-1">
             <TooltipProvider>
@@ -281,47 +287,37 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                                 <p>Delete Room</p>
                             </TooltipContent>
                         </Tooltip>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                    <MoreVertical className="h-5 w-5" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onSelect={() => { setNewRoomNameInput(currentRoomName); setIsRenameRoomModalOpen(true); }}>
-                                    <Pencil className="mr-2 h-4 w-4" />
-                                    <span>Rename Room</span>
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
                     </>
                 )}
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                            <MoreVertical className="h-5 w-5" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                         {isCreator && <DropdownMenuItem onSelect={() => { setNewRoomNameInput(currentRoomName); setIsRenameRoomModalOpen(true); }}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            <span>Rename Room</span>
+                        </DropdownMenuItem>}
+                        <DropdownMenuItem onSelect={openChangeNameModal}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            <span>Change Name</span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </TooltipProvider>
         </div>
       </header>
       
       <main className="flex-1 overflow-hidden">
-        <div className="h-full flex flex-col-reverse md:flex-row">
-            <Card className="w-full md:w-64 border-0 border-r rounded-none shrink-0">
+        <div className="h-full flex flex-row">
+            <Card className="hidden md:flex md:flex-col w-64 border-0 md:border-r rounded-none shrink-0">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-base"><Users className="h-5 w-5" /> Online Users</CardTitle>
                 </CardHeader>
                 <CardContent className="p-2">
-                    <ul className="space-y-2">
-                        {users.map((user, i) => (
-                            <li key={`${user}-${i}`} className="flex items-center gap-2 text-sm p-2 rounded-md">
-                                <Avatar className="h-8 w-8">
-                                    <AvatarFallback>{getInitials(user)}</AvatarFallback>
-                                </Avatar>
-                                <span className="font-medium truncate">{user} {user === username && '(You)'}</span>
-                                {user === username && (
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto flex-shrink-0" onClick={openChangeNameModal}>
-                                        <Pencil className="h-4 w-4" />
-                                    </Button>
-                                )}
-                            </li>
-                        ))}
-                    </ul>
+                   <UserList users={users} username={username} onOpenChangeName={openChangeNameModal} />
                 </CardContent>
             </Card>
 
@@ -384,6 +380,22 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
             </div>
         </div>
       </main>
+
+      <Sheet open={isUsersSheetOpen} onOpenChange={setIsUsersSheetOpen}>
+        <SheetContent side="left" className="p-0 flex flex-col">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                <Users className="h-5 w-5" /> Online Users
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 p-2 overflow-y-auto">
+                <UserList users={users} username={username} onOpenChangeName={() => {
+                    openChangeNameModal();
+                    setIsUsersSheetOpen(false);
+                }} />
+            </CardContent>
+        </SheetContent>
+      </Sheet>
 
       <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
         <AlertDialogContent>
