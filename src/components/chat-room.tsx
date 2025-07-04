@@ -618,7 +618,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       placeholder="Type a message..."
-                      className="flex-1 bg-card"
+                      className="flex-1 bg-card focus-visible:ring-0 focus-visible:ring-offset-0"
                       autoComplete="off"
                     />
                     <Button type="submit" size="icon" disabled={!input.trim() && !attachment}>
