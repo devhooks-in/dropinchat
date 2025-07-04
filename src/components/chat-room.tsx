@@ -92,6 +92,17 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
       router.push('/');
     });
 
+    socket.on('creator-update', (newCreatorId: string) => {
+      const amICreator = newCreatorId === socket.id;
+      setIsCreator(amICreator);
+      if (amICreator) {
+        toast({
+          title: 'You are the new room owner!',
+          description: 'The previous owner left the room.',
+        });
+      }
+    });
+
     return () => {
       socket.disconnect();
     };

@@ -144,25 +144,38 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
         const room = rooms.get(currentRoomId);
         if (room) {
           const username = room.users.get(socket.id);
+          const wasCreator = room.creatorId === socket.id;
           room.users.delete(socket.id);
 
-          // If the creator leaves, no one else becomes the creator.
-          // The actions will just be unavailable.
+          if (wasCreator && room.users.size > 0) {
+            const nextCreatorSocketId = room.users.keys().next().value;
+            room.creatorId = nextCreatorSocketId;
+            const newCreatorUsername = room.users.get(nextCreatorSocketId);
+            
+            const ownerLeftMessage: Message = {
+              id: `${Date.now()}-system`,
+              user: 'System',
+              text: `${username} (the room owner) has left. ${newCreatorUsername} is now the new room owner.`,
+              timestamp: Date.now(),
+              type: 'system',
+            };
+            room.messages.push(ownerLeftMessage);
+            io.to(currentRoomId).emit('new-message', ownerLeftMessage);
+            io.to(currentRoomId).emit('creator-update', room.creatorId);
 
-          if (username) {
-             const systemMessage: Message = {
+          } else if (username) {
+             const userLeftMessage: Message = {
                 id: `${Date.now()}-system`,
                 user: 'System',
                 text: `${username} has left the room.`,
                 timestamp: Date.now(),
                 type: 'system',
              };
-             room.messages.push(systemMessage);
-             io.to(currentRoomId).emit('new-message', systemMessage);
+             room.messages.push(userLeftMessage);
+             io.to(currentRoomId).emit('new-message', userLeftMessage);
           }
           
-          const usersInRoom = getRoomUsers(currentRoomId);
-          io.to(currentRoomId).emit('user-list-update', usersInRoom);
+          io.to(currentRoomId).emit('user-list-update', getRoomUsers(currentRoomId));
 
           if (room.users.size === 0) {
             rooms.delete(currentRoomId);
