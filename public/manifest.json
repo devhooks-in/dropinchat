@@ -1,10 +1,10 @@
 {
   "name": "TempTalk",
   "short_name": "TempTalk",
-  "description": "Temporary real-time chat rooms.",
+  "description": "Real-time private chat rooms.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#e5e7eb",
+  "background_color": "#1f2937",
   "theme_color": "#1f2937",
   "icons": [
     {
