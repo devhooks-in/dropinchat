@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Paperclip, X, FileText, Download, Share2, Loader2, QrCode, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
+import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Paperclip, X, FileText, Download, Share2, Loader2, QrCode, Mic, Square, Volume2, VolumeX } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
 import UserList from './user-list';
 import { useToast } from '@/hooks/use-toast';
@@ -566,7 +566,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
         setIsConnectingMic(true);
         try {
             if (!audioContextRef.current) {
-                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ latencyHint: 'interactive', sampleRate: 24000 });
+                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ latencyHint: 'interactive', sampleRate: 48000 });
             }
             if (audioContextRef.current.state === 'suspended') {
                 await audioContextRef.current.resume();
@@ -574,7 +574,8 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: {
                 echoCancellation: true,
                 noiseSuppression: true,
-                autoGainControl: true
+                autoGainControl: true,
+                latency: 0.01,
             } });
             mediaStreamRef.current = stream;
             
@@ -594,8 +595,6 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             
             source.connect(processor);
             
-            // To prevent echo, the processor should not be connected to the destination.
-            // However, to ensure the onaudioprocess event fires, we connect it to a muted GainNode.
             const gainNode = audioContext.createGain();
             gainNode.gain.value = 0;
             processor.connect(gainNode);
@@ -655,7 +654,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                 <Tooltip>
                     <TooltipTrigger asChild>
                          <Button variant={isSpeaking ? "destructive" : "ghost"} size="icon" onClick={handleToggleSpeaking} disabled={isConnectingMic} className={`${isSpeaking ? "" : "hover:bg-card hover:text-foreground dark:hover:bg-secondary"}`}>
-                            {isConnectingMic ? <Loader2 className="h-5 w-5 animate-spin" /> : isSpeaking ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                            {isConnectingMic ? <Loader2 className="h-5 w-5 animate-spin" /> : isSpeaking ? <Square className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                             <span className="sr-only">{isConnectingMic ? "Connecting microphone..." : isSpeaking ? 'Stop Speaking' : 'Start Speaking'}</span>
                         </Button>
                     </TooltipTrigger>
