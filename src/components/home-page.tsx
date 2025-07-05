@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -79,6 +80,8 @@ export default function HomePage() {
       });
     }
   };
+  
+  const isUsernameValid = username.trim().length >= 3;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -119,7 +122,7 @@ export default function HomePage() {
                     className="bg-card"
                   />
                 </div>
-                <Button type="submit" className="w-full" size="lg" disabled={!!loading}>
+                <Button type="submit" className="w-full" size="lg" disabled={!!loading || !isUsernameValid}>
                   {loading === 'create' ? (
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   ) : (
@@ -141,7 +144,7 @@ export default function HomePage() {
                     className="bg-card"
                   />
                 </div>
-                <Button type="submit" variant="secondary" className="w-full" disabled={!!loading}>
+                <Button type="submit" variant="secondary" className="w-full" disabled={!!loading || !isUsernameValid}>
                   {loading === 'join' ? (
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   ) : (
