@@ -4,6 +4,8 @@ import type { Socket as NetSocket } from 'net';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { Server as IOServer } from 'socket.io';
 import type { Message, User } from '@/lib/types';
+import { rooms } from '@/lib/room-store';
+import type { Room } from '@/lib/room-store';
 
 interface SocketServer extends HTTPServer {
   io?: IOServer;
@@ -17,14 +19,6 @@ interface NextApiResponseWithSocket extends NextApiResponse {
   socket: SocketWithIO;
 }
 
-interface Room {
-  name: string;
-  users: Map<string, string>; // socket.id -> username
-  messages: Message[];
-  creatorId: string | null;
-}
-
-const rooms = new Map<string, Room>();
 // Map to store timeouts for disconnected users. Key is the old socket.id.
 const disconnectionTimeouts = new Map<string, NodeJS.Timeout>();
 
