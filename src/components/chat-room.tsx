@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Paperclip, X, FileText, Download, Share2, Loader2, QrCode, Mic, Square, Play, Maximize } from 'lucide-react';
+import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Paperclip, X, FileText, Download, Share2, Loader2, QrCode, Mic, Square, Play, Maximize, Pause } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
 import UserList from './user-list';
 import { useToast } from '@/hooks/use-toast';
@@ -38,6 +38,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -107,6 +108,32 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
 
   // Media preview state
   const [previewMedia, setPreviewMedia] = useState<{ name: string; type: string; data: string } | null>(null);
+
+  // Custom audio player state
+  const [playingAudio, setPlayingAudio] = useState<string | null>(null); // Stores the ID of the playing audio
+  const audioRefs = useRef<Map<string, HTMLAudioElement | null>>(new Map());
+
+  const handlePlayPause = (id: string) => {
+    const audioEl = audioRefs.current.get(id);
+    if (!audioEl) return;
+  
+    // If another audio is playing, pause it first
+    if (playingAudio && playingAudio !== id) {
+      const currentPlayingEl = audioRefs.current.get(playingAudio);
+      if (currentPlayingEl) {
+        currentPlayingEl.pause();
+      }
+    }
+  
+    // Toggle play/pause for the clicked audio
+    if (playingAudio === id) {
+      audioEl.pause();
+      setPlayingAudio(null);
+    } else {
+      audioEl.play().catch(e => console.error("Audio play failed", e));
+      setPlayingAudio(id);
+    }
+  };
 
   useEffect(() => {
     setIsClient(true);
@@ -312,6 +339,11 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
       });
       setInput('');
       setAttachment(null);
+      if(playingAudio === 'preview') {
+        const audioEl = audioRefs.current.get('preview');
+        if (audioEl) audioEl.pause();
+        setPlayingAudio(null);
+      }
     }
   };
 
@@ -669,8 +701,23 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                                     </div>
                                 </div>
                             ) : msg.attachment?.type.startsWith('audio/') ? (
-                                <div className="my-2">
-                                  <audio src={msg.attachment.data} controls className="w-full" />
+                                <div className="my-2 flex items-center gap-2">
+                                  <audio
+                                    src={msg.attachment.data}
+                                    ref={(el) => audioRefs.current.set(msg.id, el)}
+                                    onEnded={() => setPlayingAudio(null)}
+                                    onPause={() => {
+                                      if (playingAudio === msg.id) setPlayingAudio(null);
+                                    }}
+                                    preload="metadata"
+                                  />
+                                  <Button size="icon" variant="ghost" className="h-10 w-10 flex-shrink-0" onClick={() => handlePlayPause(msg.id)}>
+                                    {playingAudio === msg.id ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+                                  </Button>
+                                  <div className="text-sm min-w-0">
+                                    <p className="truncate font-medium">{msg.attachment.name}</p>
+                                    <p className="text-xs text-muted-foreground">Audio message</p>
+                                  </div>
                                 </div>
                             ) : msg.attachment ? (
                                 <a href={msg.attachment.data} download={msg.attachment.name} className="grid grid-cols-[auto_1fr] items-center gap-2 my-2 p-2 rounded-md bg-background/20 hover:bg-background/40">
@@ -712,7 +759,21 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                                   <X className="h-4 w-4" />
                                 </Button>
                               </div>
-                              <audio src={attachment.data} controls className="w-full h-10" />
+                              <div className="flex items-center gap-2 border-t pt-2 mt-1">
+                                <audio
+                                  src={attachment.data}
+                                  ref={(el) => audioRefs.current.set('preview', el)}
+                                  onEnded={() => setPlayingAudio(null)}
+                                  onPause={() => {
+                                      if (playingAudio === 'preview') setPlayingAudio(null);
+                                  }}
+                                  preload="metadata"
+                                />
+                                <Button size="icon" variant="ghost" className="h-10 w-10 flex-shrink-0" onClick={() => handlePlayPause('preview')}>
+                                  {playingAudio === 'preview' ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+                                </Button>
+                                <p className="text-sm text-muted-foreground">Preview</p>
+                              </div>
                             </div>
                           ) : (
                             <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-md border bg-card p-2">
@@ -873,13 +934,21 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
       </Dialog>
       
       <Dialog open={!!previewMedia} onOpenChange={(open) => !open && setPreviewMedia(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-1 bg-transparent border-0">
+        <DialogContent className="max-w-4xl max-h-[90vh] p-1 bg-transparent border-0 shadow-none">
           {previewMedia?.type.startsWith('image/') && (
               <img src={previewMedia.data} alt={previewMedia.name} className="max-w-full max-h-[90vh] object-contain mx-auto rounded-lg" />
           )}
           {previewMedia?.type.startsWith('video/') && (
               <video src={previewMedia.data} controls autoPlay className="w-full max-h-[90vh] object-contain mx-auto rounded-lg" />
           )}
+          <DialogFooter className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
+            <Button asChild>
+              <a href={previewMedia?.data} download={previewMedia?.name}>
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </a>
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
