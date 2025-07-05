@@ -141,7 +141,7 @@ export default function HomePage() {
                     onChange={(e) => setJoinRoomId(e.target.value)}
                   />
                 </div>
-                <Button type="submit" variant="secondary" className="w-full" size="lg" disabled={!!loading || !isUsernameValid}>
+                <Button type="submit" className="w-full" size="lg" disabled={!!loading || !isUsernameValid}>
                   {loading === 'join' ? (
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   ) : (
