@@ -574,7 +574,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             // To prevent echo, the processor should not be connected to the destination.
             // However, to ensure the onaudioprocess event fires, we connect it to a muted GainNode.
             const gainNode = audioContext.createGain();
-            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode.gain.value = 0;
             processor.connect(gainNode);
             gainNode.connect(audioContext.destination);
 
