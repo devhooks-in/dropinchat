@@ -154,31 +154,45 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     }, 100);
   }, []);
 
-  const playQueue = useCallback(() => {
-      if (isPlayingRef.current || audioQueueRef.current.length === 0 || isMuted || !speakerId) {
-          return;
-      }
+  const playQueue = useCallback(async () => {
+    const audioContext = audioContextRef.current;
+    if (audioContext?.state === 'suspended') {
+        try {
+            await audioContext.resume();
+        } catch (e) {
+            console.error('Failed to resume audio context', e);
+            toast({
+              title: "Audio Playback Blocked",
+              description: "Click anywhere on the page to enable audio.",
+              variant: "destructive"
+            });
+            return;
+        }
+    }
+    
+    if (isPlayingRef.current || audioQueueRef.current.length === 0 || isMuted || !speakerId) {
+        return;
+    }
 
-      isPlayingRef.current = true;
-      const audioData = audioQueueRef.current.shift();
-      const audioContext = audioContextRef.current;
+    isPlayingRef.current = true;
+    const audioData = audioQueueRef.current.shift();
 
-      if (audioContext && audioData) {
-          const buffer = audioContext.createBuffer(1, audioData.length, audioContext.sampleRate);
-          buffer.getChannelData(0).set(audioData);
+    if (audioContext && audioData) {
+        const buffer = audioContext.createBuffer(1, audioData.length, audioContext.sampleRate);
+        buffer.getChannelData(0).set(audioData);
 
-          const source = audioContext.createBufferSource();
-          source.buffer = buffer;
-          source.connect(audioContext.destination);
-          source.start();
-          source.onended = () => {
-              isPlayingRef.current = false;
-              playQueue();
-          };
-      } else {
-          isPlayingRef.current = false;
-      }
-  }, [isMuted, speakerId]);
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start();
+        source.onended = () => {
+            isPlayingRef.current = false;
+            playQueue();
+        };
+    } else {
+        isPlayingRef.current = false;
+    }
+  }, [isMuted, speakerId, toast]);
 
   useEffect(() => {
     if (typeof navigator !== 'undefined' && navigator.share) {
@@ -264,9 +278,6 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
 
     socket.on('audio-data', (data: ArrayBuffer) => {
         if (isMuted) return;
-        if (audioContextRef.current?.state === 'suspended') {
-            audioContextRef.current.resume();
-        }
         if (!audioContextRef.current) return;
         const float32Data = new Float32Array(data);
         audioQueueRef.current.push(float32Data);
@@ -512,7 +523,6 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             };
             
             source.connect(processor);
-            processor.connect(audioContext.destination);
             
             socketRef.current?.emit('start-speaking', roomId);
             isSpeakingRef.current = true;
