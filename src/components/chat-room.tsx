@@ -111,7 +111,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   const audioQueueRef = useRef<Float32Array[]>([]);
   const isPlayingRef = useRef(false);
   const isSpeakingRef = useRef(false);
-  const [isAudioPausedToastShown, setIsAudioPausedToastShown] = useState(false);
+  const [isAudioContextSuspended, setIsAudioContextSuspended] = useState(false);
 
   const speaker = users.find(u => u.id === speakerId);
 
@@ -122,7 +122,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   const playNotificationSound = useCallback(() => {
     if (!audioContextRef.current) {
        try {
-            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 48000 });
         } catch (e) {
             console.error("Web Audio API is not supported in this browser");
             return;
@@ -161,18 +161,21 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   }, []);
 
   const playQueue = useCallback(() => {
-    const audioContext = audioContextRef.current;
-    if (audioContext?.state === 'suspended') {
-      if (!isAudioPausedToastShown) {
-        toast({
-          title: "Audio Paused",
-          description: "Click anywhere on the page to enable audio playback.",
-          variant: "default",
-        });
-        setIsAudioPausedToastShown(true);
+    if (!audioContextRef.current) {
+      try {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 48000 });
+      } catch (e) {
+        console.error("Web Audio API is not supported in this browser");
+        return;
       }
+    }
+    const audioContext = audioContextRef.current;
+    
+    if (audioContext.state === 'suspended') {
+      setIsAudioContextSuspended(true);
       return;
     }
+    setIsAudioContextSuspended(false);
     
     if (isPlayingRef.current || audioQueueRef.current.length === 0 || isMuted || !speakerId) {
         return;
@@ -198,7 +201,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     } else {
         isPlayingRef.current = false;
     }
-  }, [isMuted, speakerId, toast, isAudioPausedToastShown]);
+  }, [isMuted, speakerId]);
 
   useEffect(() => {
     if (typeof navigator !== 'undefined' && navigator.share) {
@@ -219,34 +222,8 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
       setIsInitialNamePrompt(true);
       setIsNameModalOpen(true);
     }
-    if (!audioContextRef.current) {
-        try {
-            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-        } catch (e) {
-            console.error("Web Audio API is not supported in this browser");
-        }
-    }
   }, []);
-
-  // Effect to handle browser autoplay policies
-  useEffect(() => {
-    const resumeAudioContext = () => {
-      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume().then(() => {
-            setIsAudioPausedToastShown(false);
-        }).catch(e => console.error("Failed to resume audio context on user gesture", e));
-      }
-    };
-
-    document.addEventListener('click', resumeAudioContext);
-    document.addEventListener('touchstart', resumeAudioContext, { passive: true });
-
-    return () => {
-      document.removeEventListener('click', resumeAudioContext);
-      document.removeEventListener('touchstart', resumeAudioContext);
-    };
-  }, []);
-
+  
   // Main socket connection and static listeners
   useEffect(() => {
     fetch('/api/socket');
@@ -337,7 +314,13 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
 
     const handleAudioData = (data: ArrayBuffer) => {
         if (isMuted) return;
-        if (!audioContextRef.current) return;
+        if (!audioContextRef.current) {
+          try {
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 48000 });
+          } catch(e) {
+            return;
+          }
+        }
         const float32Data = new Float32Array(data);
         audioQueueRef.current.push(float32Data);
         if (!isPlayingRef.current) {
@@ -384,7 +367,6 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
         username,
       }, (response: { success: boolean, roomState?: any, error?: string }) => {
         if (response.success) {
-            sessionStorage.removeItem('roomCreationInfo');
             const data = response.roomState;
             setMessages(data.messages);
             setUsers(data.users);
@@ -394,6 +376,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             setSpeakerId(data.speakerId);
             setIsLoading(false);
             scrollToBottom();
+            sessionStorage.removeItem('roomCreationInfo');
         } else {
             router.push('/?error=room_not_found');
         }
@@ -544,12 +527,31 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
       setIsMuted(prev => !prev);
   };
 
+  const handleResumeAudio = () => {
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume().then(() => {
+        setIsAudioContextSuspended(false);
+        if (audioQueueRef.current.length > 0) {
+          playQueue();
+        }
+      }).catch(e => {
+        console.error("Failed to resume audio context", e);
+        toast({
+          title: "Audio Error",
+          description: "Could not enable audio. Please check browser permissions.",
+          variant: "destructive"
+        })
+      });
+    }
+  };
+
   const handleToggleSpeaking = useCallback(async () => {
     if (isConnectingMic) return;
 
     if (isSpeakingRef.current) {
         if (mediaStreamRef.current) {
             mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            mediaStreamRef.current = null;
         }
         if (scriptProcessorRef.current) {
             scriptProcessorRef.current.disconnect();
@@ -753,7 +755,16 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             </Card>
 
             <div className="flex-1 flex flex-col h-full bg-white dark:bg-gray-100">
-              {speaker && (
+              {isAudioContextSuspended && speakerId ? (
+                <div className="flex items-center justify-center gap-4 border-b bg-primary/10 px-4 py-2 shrink-0 animate-fade-in">
+                  <p className="text-sm font-medium text-primary">
+                    Audio is paused. Click to listen to the live stream.
+                  </p>
+                  <Button onClick={handleResumeAudio} size="sm">
+                    <Volume2 className="mr-2 h-4 w-4" /> Listen Live
+                  </Button>
+                </div>
+              ) : speaker ? (
                 <div className="flex items-center gap-3 border-b bg-background/50 px-4 py-2 shrink-0 animate-fade-in">
                   <Mic className="h-5 w-5 text-primary animate-pulse" />
                   <p className="flex-1 text-sm font-medium">
@@ -771,7 +782,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                       </Tooltip>
                   </TooltipProvider>
                 </div>
-              )}
+              ) : null }
               {isLoading ? (
                 <div className="flex-1 p-4 space-y-6 animate-pulse">
                   <div className="flex items-end gap-2 justify-start">
