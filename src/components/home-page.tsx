@@ -74,7 +74,13 @@ export default function HomePage() {
     }
     setLoading('create');
     const newRoomId = Math.random().toString(36).substring(2, 9);
-    router.push(`/chat/${newRoomId}?name=${encodeURIComponent(newRoomName.trim())}&create=true`);
+    const creationInfo = {
+      roomId: newRoomId,
+      roomName: newRoomName.trim(),
+      isCreating: true,
+    };
+    sessionStorage.setItem('roomCreationInfo', JSON.stringify(creationInfo));
+    router.push(`/chat/${newRoomId}`);
   };
 
   const joinRoom = (e: React.FormEvent<HTMLFormElement>) => {

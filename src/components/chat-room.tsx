@@ -65,11 +65,11 @@ const linkify = (text: string) => {
   });
 };
 
-export default function ChatRoom({ roomId, roomName, isCreating }: { roomId: string, roomName?: string, isCreating?: boolean }) {
+export default function ChatRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
   const { toast } = useToast();
   const [username, setUsername] = useState<string | null>(null);
-  const [currentRoomName, setCurrentRoomName] = useState(roomName || roomId);
+  const [currentRoomName, setCurrentRoomName] = useState(roomId);
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [nameModalConfig, setNameModalConfig] = useState({ title: '', description: '' });
   const [isInitialNamePrompt, setIsInitialNamePrompt] = useState(false);
@@ -140,7 +140,7 @@ export default function ChatRoom({ roomId, roomName, isCreating }: { roomId: str
     if (typeof navigator !== 'undefined' && navigator.share) {
       setCanShare(true);
     }
-    setRoomUrl(window.location.href.split('?')[0]);
+    setRoomUrl(window.location.href);
   }, []);
 
   useEffect(() => {
@@ -233,11 +233,26 @@ export default function ChatRoom({ roomId, roomName, isCreating }: { roomId: str
     const socket = socketRef.current;
     if (socket && username && !hasJoined.current) {
       hasJoined.current = true;
+
+      let joinRoomName: string | null = null;
+      let joinIsCreating = false;
+      const creationInfoJSON = sessionStorage.getItem('roomCreationInfo');
+      if (creationInfoJSON) {
+        try {
+            const creationInfo = JSON.parse(creationInfoJSON);
+            if (creationInfo.roomId === roomId) {
+                joinRoomName = creationInfo.roomName;
+                joinIsCreating = creationInfo.isCreating;
+            }
+        } catch (e) { console.error("Failed to parse room creation info", e); }
+        sessionStorage.removeItem('roomCreationInfo');
+      }
+
       socket.emit('join-room', {
         roomId, 
-        roomName, 
+        roomName: joinRoomName, 
         username,
-        isCreating: !!isCreating
+        isCreating: joinIsCreating
       }, (response: { success: boolean, roomState?: any, error?: string }) => {
         if (response.success) {
             const data = response.roomState;
@@ -253,15 +268,7 @@ export default function ChatRoom({ roomId, roomName, isCreating }: { roomId: str
         }
       });
     }
-  }, [roomId, username, roomName, isCreating, scrollToBottom, router]);
-
-  useEffect(() => {
-    // Once the room is loaded and we know it was a creation, clean the URL.
-    if (!isLoading && isCreating) {
-      router.replace(`/chat/${roomId}`, { scroll: false });
-      setRoomUrl(window.location.origin + `/chat/${roomId}`);
-    }
-  }, [isLoading, isCreating, roomId, router]);
+  }, [roomId, username, scrollToBottom, router]);
   
   useEffect(() => {
     scrollToBottom();
