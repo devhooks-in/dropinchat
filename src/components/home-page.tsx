@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function HomePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [joinRoomId, setJoinRoomId] = useState('');
   const [newRoomName, setNewRoomName] = useState('');
   const [username, setUsername] = useState('');
@@ -20,11 +21,22 @@ export default function HomePage() {
   const { toast } = useToast();
 
   useEffect(() => {
+    const error = searchParams.get('error');
+    if (error === 'room_not_found') {
+      toast({
+        title: "Room Not Found",
+        description: "The room you tried to join doesn't exist or has been deleted. Please create a new room or join another one.",
+        variant: "destructive",
+        duration: 8000,
+      });
+      router.replace('/', { scroll: false });
+    }
+    
     const storedName = localStorage.getItem('dropinchat-username');
     if (storedName) {
       setUsername(storedName);
     }
-  }, []);
+  }, [searchParams, router, toast]);
 
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;

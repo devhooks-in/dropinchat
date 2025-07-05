@@ -253,17 +253,11 @@ export default function ChatRoom({ roomId, roomName, isCreating }: { roomId: str
               setRoomUrl(window.location.origin + `/chat/${roomId}`);
             }
         } else {
-            toast({
-              title: "Room Not Found",
-              description: "The room you're trying to join doesn't exist or has been deleted. Redirecting you to the homepage.",
-              variant: "destructive",
-              duration: 5000,
-            });
-            router.push('/');
+            router.push('/?error=room_not_found');
         }
       });
     }
-  }, [roomId, username, roomName, isCreating, scrollToBottom, router, toast]);
+  }, [roomId, username, roomName, isCreating, scrollToBottom, router]);
   
   useEffect(() => {
     scrollToBottom();
