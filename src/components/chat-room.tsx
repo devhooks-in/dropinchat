@@ -248,16 +248,20 @@ export default function ChatRoom({ roomId, roomName, isCreating }: { roomId: str
             setCurrentRoomName(data.roomName);
             setIsLoading(false);
             scrollToBottom();
-            if (isCreating) {
-              router.replace(`/chat/${roomId}`, { scroll: false });
-              setRoomUrl(window.location.origin + `/chat/${roomId}`);
-            }
         } else {
             router.push('/?error=room_not_found');
         }
       });
     }
   }, [roomId, username, roomName, isCreating, scrollToBottom, router]);
+
+  useEffect(() => {
+    // Once the room is loaded and we know it was a creation, clean the URL.
+    if (!isLoading && isCreating) {
+      router.replace(`/chat/${roomId}`, { scroll: false });
+      setRoomUrl(window.location.origin + `/chat/${roomId}`);
+    }
+  }, [isLoading, isCreating, roomId, router]);
   
   useEffect(() => {
     scrollToBottom();
