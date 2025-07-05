@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { LogIn, PlusCircle, MessageSquare, Loader2, QrCode } from 'lucide-react';
+import { LogIn, PlusCircle, MessageSquare, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -79,12 +79,6 @@ export default function HomePage() {
       });
     }
   };
-  
-  const handleScan = () => {
-    if (loading || !validateUsername()) return;
-    setLoading('join');
-    router.push('/scan');
-  };
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -135,7 +129,7 @@ export default function HomePage() {
                 </Button>
               </form>
             </TabsContent>
-            <TabsContent value="join" className="pt-4 space-y-4">
+            <TabsContent value="join" className="pt-4">
               <form onSubmit={joinRoom} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="joinRoomId">Join with Room ID</Label>
@@ -156,20 +150,6 @@ export default function HomePage() {
                   Join with ID
                 </Button>
               </form>
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">
-                    Or
-                  </span>
-                </div>
-              </div>
-              <Button variant="outline" className="w-full" onClick={handleScan} disabled={!!loading}>
-                <QrCode className="mr-2 h-5 w-5" />
-                Scan QR Code to Join
-            </Button>
             </TabsContent>
           </Tabs>
         </CardContent>
