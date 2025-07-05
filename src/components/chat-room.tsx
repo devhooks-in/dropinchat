@@ -550,8 +550,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: {
                 echoCancellation: true,
                 noiseSuppression: true,
-                autoGainControl: true,
-                latency: 0.01
+                autoGainControl: true
             } });
             mediaStreamRef.current = stream;
             
@@ -559,7 +558,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             const source = audioContext.createMediaStreamSource(stream);
             audioSourceRef.current = source;
             
-            const bufferSize = 2048;
+            const bufferSize = 4096;
             const processor = audioContext.createScriptProcessor(bufferSize, 1, 1);
             scriptProcessorRef.current = processor;
             
