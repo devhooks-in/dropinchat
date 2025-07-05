@@ -1,3 +1,4 @@
+
 import type { Server as HTTPServer } from 'http';
 import type { Socket as NetSocket } from 'net';
 import type { NextApiRequest, NextApiResponse } from 'next';
@@ -181,41 +182,42 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
     });
 
     socket.on('disconnect', () => {
-      if (currentRoomId) {
-        const room = rooms.get(currentRoomId);
-        if (room && room.users.has(socket.id)) {
-          const username = room.users.get(socket.id)!;
-          const wasCreator = room.creatorId === socket.id;
+      if (!currentRoomId) {
+        return; // User disconnected without joining a room.
+      }
+      const room = rooms.get(currentRoomId);
+      if (room && room.users.has(socket.id)) {
+        const username = room.users.get(socket.id)!;
+        const wasCreator = room.creatorId === socket.id;
 
-          // Set a timeout to remove the user after a grace period.
-          const timeoutId = setTimeout(() => {
-            const currentRoom = rooms.get(currentRoomId!);
-            // Only remove if they haven't reconnected (i.e., the old socket ID is still in users).
-            if (currentRoom && currentRoom.users.has(socket.id)) {
-              currentRoom.users.delete(socket.id);
+        // Set a timeout to remove the user after a grace period.
+        const timeoutId = setTimeout(() => {
+          const currentRoom = rooms.get(currentRoomId!);
+          // Only remove if they haven't reconnected (i.e., the old socket ID is still in users).
+          if (currentRoom && currentRoom.users.has(socket.id)) {
+            currentRoom.users.delete(socket.id);
 
-              if (currentRoom.users.size === 0) {
-                rooms.delete(currentRoomId!);
-                return; // Room is empty, no need to send updates
-              }
-              
-              if (wasCreator) {
-                const newCreatorId = currentRoom.users.keys().next().value;
-                currentRoom.creatorId = newCreatorId;
-                const newCreatorUsername = currentRoom.users.get(newCreatorId);
-                sendSystemMessage(currentRoomId!, `${username} (the room owner) has left. ${newCreatorUsername} is now the new room owner.`);
-                io.to(currentRoomId!).emit('creator-update', currentRoom.creatorId);
-              } else {
-                 sendSystemMessage(currentRoomId!, `${username} has left the room.`);
-              }
-              
-              io.to(currentRoomId!).emit('user-list-update', getRoomUsers(currentRoomId!));
+            if (currentRoom.users.size === 0) {
+              rooms.delete(currentRoomId!);
+              return; // Room is empty, no need to send updates
             }
-            disconnectionTimeouts.delete(socket.id);
-          }, 60000); // 1-minute grace period
+            
+            if (wasCreator) {
+              const newCreatorId = currentRoom.users.keys().next().value;
+              currentRoom.creatorId = newCreatorId;
+              const newCreatorUsername = currentRoom.users.get(newCreatorId);
+              sendSystemMessage(currentRoomId!, `${username} (the room owner) has left. ${newCreatorUsername} is now the new room owner.`);
+              io.to(currentRoomId!).emit('creator-update', currentRoom.creatorId);
+            } else {
+                sendSystemMessage(currentRoomId!, `${username} has left the room.`);
+            }
+            
+            io.to(currentRoomId!).emit('user-list-update', getRoomUsers(currentRoomId!));
+          }
+          disconnectionTimeouts.delete(socket.id);
+        }, 60000); // 1-minute grace period
 
-          disconnectionTimeouts.set(socket.id, timeoutId);
-        }
+        disconnectionTimeouts.set(socket.id, timeoutId);
       }
     });
   });
