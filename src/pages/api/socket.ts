@@ -61,35 +61,38 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
   io.on('connection', socket => {
     let currentRoomId: string | null = null;
 
-    socket.on('join-room', (roomId: string, roomName: string | null, username: string) => {
+    socket.on('join-room', (roomId: string, roomName: string | null, username: string, callback?: (response: { success: boolean; error?: string; roomState?: any }) => void) => {
       if (!username) {
+        if (callback) callback({ success: false, error: 'Username is required.' });
         return;
       }
       
+      if (!rooms.has(roomId)) {
+          if (roomName) {
+              // This is a new room creation
+              rooms.set(roomId, { name: roomName, users: new Map(), messages: [], creatorId: socket.id });
+          } else {
+              // Trying to join a room that doesn't exist
+              if (callback) callback({ success: false, error: 'Room not found' });
+              return;
+          }
+      }
+
       currentRoomId = roomId;
       socket.join(roomId);
-
-      if (!rooms.has(roomId)) {
-        rooms.set(roomId, { name: roomName || roomId, users: new Map(), messages: [], creatorId: socket.id });
-      }
       const room = rooms.get(roomId)!;
       
       let isReconnecting = false;
       // --- Reconnection Logic ---
-      // Look for a disconnected user with the same name in the same room.
       for (const [oldSocketId, timeoutId] of disconnectionTimeouts.entries()) {
-          // Check if the disconnected user belongs to this room and has the same name
           if (room.users.get(oldSocketId) === username) {
               clearTimeout(timeoutId);
               disconnectionTimeouts.delete(oldSocketId);
-              // The old entry is stale and represents the disconnected state. Remove it.
               room.users.delete(oldSocketId);
               isReconnecting = true;
-              // Assuming one user per name for reconnection logic.
               break;
           }
       }
-      // --- End Reconnection Logic ---
       
       if (!isReconnecting) {
         sendSystemMessage(roomId, `${username} has joined the room.`);
@@ -97,12 +100,17 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
       
       room.users.set(socket.id, username);
 
-      socket.emit('room-state', {
-        messages: room.messages,
-        users: getRoomUsers(roomId),
-        creatorId: room.creatorId,
-        roomName: room.name,
-      });
+      if (callback) {
+          callback({
+              success: true,
+              roomState: {
+                  messages: room.messages,
+                  users: getRoomUsers(roomId),
+                  creatorId: room.creatorId,
+                  roomName: room.name,
+              }
+          });
+      }
 
       io.to(roomId).emit('user-list-update', getRoomUsers(roomId));
     });

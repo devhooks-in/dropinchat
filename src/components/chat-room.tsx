@@ -98,6 +98,8 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
   const [isAttachingFile, setIsAttachingFile] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [roomUrl, setRoomUrl] = useState('');
+  const [isRoomNotFound, setIsRoomNotFound] = useState(false);
+
 
   const playNotificationSound = useCallback(() => {
     if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
@@ -232,16 +234,19 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     const socket = socketRef.current;
     if (socket && username && !hasJoined.current) {
       hasJoined.current = true;
-      socket.emit('join-room', roomId, roomName, username);
-
-      socket.once('room-state', (data: { messages: Message[], users: User[], creatorId: string | null, roomName: string }) => {
-        setMessages(data.messages);
-        setUsers(data.users);
-        setCreatorId(data.creatorId);
-        setIsCreator(data.creatorId === socket.id);
-        setCurrentRoomName(data.roomName);
-        setIsLoading(false);
-        scrollToBottom();
+      socket.emit('join-room', roomId, roomName, username, (response: { success: boolean, roomState?: any, error?: string }) => {
+        if (response.success) {
+            const data = response.roomState;
+            setMessages(data.messages);
+            setUsers(data.users);
+            setCreatorId(data.creatorId);
+            setIsCreator(data.creatorId === socket.id);
+            setCurrentRoomName(data.roomName);
+            setIsLoading(false);
+            scrollToBottom();
+        } else {
+            setIsRoomNotFound(true);
+        }
       });
     }
   }, [roomId, username, roomName, scrollToBottom]);
@@ -387,6 +392,22 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
 
   return (
     <div className="flex h-screen flex-col bg-background">
+      <AlertDialog open={isRoomNotFound}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Room Unavailable</AlertDialogTitle>
+            <AlertDialogDescription>
+                This chat room could not be found. It may have been deleted by the owner, or the ID is incorrect.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => router.push('/')}>
+                Create or Join Another Room
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <NamePromptDialog 
         isOpen={isNameModalOpen} 
         onOpenChange={(open) => {
@@ -626,7 +647,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       placeholder="Type a message..."
-                      className="flex-1 bg-card"
+                      className="flex-1 bg-white"
                       autoComplete="off"
                     />
                     <Button type="submit" size="icon" disabled={!input.trim() && !attachment}>
