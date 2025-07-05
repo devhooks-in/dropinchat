@@ -98,6 +98,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   const [isAttachingFile, setIsAttachingFile] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [roomUrl, setRoomUrl] = useState('');
+  const [isClient, setIsClient] = useState(false);
 
   // Audio streaming state
   const [speakerId, setSpeakerId] = useState<string | null>(null);
@@ -112,6 +113,10 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   const isSpeakingRef = useRef(false);
 
   const speaker = users.find(u => u.id === speakerId);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const playNotificationSound = useCallback(() => {
     if (!audioContextRef.current) {
@@ -810,7 +815,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                             ) : null}
                             
                             {msg.text && <p className={`whitespace-pre-wrap break-words ${msg.type === 'user' ? 'text-sm' : ''}`}>{linkify(msg.text)}</p>}
-                            <p className={`opacity-70 ${msg.type === 'system' ? 'text-[10px]' : `text-[11px] ${msg.user === username ? 'text-user-message-foreground/70' : 'text-secondary-foreground/70 text-left'}`}`}>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                            <p className={`opacity-70 ${msg.type === 'system' ? 'text-[10px]' : `text-[11px] ${msg.user === username ? 'text-user-message-foreground/70' : 'text-secondary-foreground/70 text-left'}`}`}>{isClient ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null}</p>
                         </div>
                         {msg.type === 'user' && msg.user === username && (
                             <Avatar className="h-8 w-8">
