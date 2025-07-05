@@ -98,7 +98,6 @@ export default function ChatRoom({ roomId, roomName, isCreating }: { roomId: str
   const [isAttachingFile, setIsAttachingFile] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [roomUrl, setRoomUrl] = useState('');
-  const [isRoomNotFound, setIsRoomNotFound] = useState(false);
 
 
   const playNotificationSound = useCallback(() => {
@@ -250,11 +249,17 @@ export default function ChatRoom({ roomId, roomName, isCreating }: { roomId: str
             setIsLoading(false);
             scrollToBottom();
         } else {
-            setIsRoomNotFound(true);
+            toast({
+              title: "Room Not Found",
+              description: "The room you're trying to join doesn't exist or has been deleted. Redirecting you to the homepage.",
+              variant: "destructive",
+              duration: 5000,
+            });
+            router.push('/');
         }
       });
     }
-  }, [roomId, username, roomName, isCreating, scrollToBottom]);
+  }, [roomId, username, roomName, isCreating, scrollToBottom, router, toast]);
   
   useEffect(() => {
     scrollToBottom();
@@ -397,22 +402,6 @@ export default function ChatRoom({ roomId, roomName, isCreating }: { roomId: str
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      <AlertDialog open={isRoomNotFound}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Room Unavailable</AlertDialogTitle>
-            <AlertDialogDescription>
-                This chat room could not be found. It may have been deleted by the owner, or the ID is incorrect.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => router.push('/')}>
-                Create or Join Another Room
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <NamePromptDialog 
         isOpen={isNameModalOpen} 
         onOpenChange={(open) => {
