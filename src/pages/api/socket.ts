@@ -24,6 +24,8 @@ interface Room {
 }
 
 const rooms = new Map<string, Room>();
+// Map to store timeouts for disconnected users. Key is the old socket.id.
+const disconnectionTimeouts = new Map<string, NodeJS.Timeout>();
 
 export default function socketHandler(req: NextApiRequest, res: NextApiResponseWithSocket) {
   if (res.socket.server.io) {
@@ -72,7 +74,24 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
       }
       const room = rooms.get(roomId)!;
       
-      if (!room.users.has(socket.id)) {
+      let isReconnecting = false;
+      // --- Reconnection Logic ---
+      // Look for a disconnected user with the same name in the same room.
+      for (const [oldSocketId, timeoutId] of disconnectionTimeouts.entries()) {
+          // Check if the disconnected user belongs to this room and has the same name
+          if (room.users.get(oldSocketId) === username) {
+              clearTimeout(timeoutId);
+              disconnectionTimeouts.delete(oldSocketId);
+              // The old entry is stale and represents the disconnected state. Remove it.
+              room.users.delete(oldSocketId);
+              isReconnecting = true;
+              // Assuming one user per name for reconnection logic.
+              break;
+          }
+      }
+      // --- End Reconnection Logic ---
+      
+      if (!isReconnecting) {
         sendSystemMessage(roomId, `${username} has joined the room.`);
       }
       
@@ -151,27 +170,38 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
     socket.on('disconnect', () => {
       if (currentRoomId) {
         const room = rooms.get(currentRoomId);
-        if (room) {
-          const username = room.users.get(socket.id);
+        if (room && room.users.has(socket.id)) {
+          const username = room.users.get(socket.id)!;
           const wasCreator = room.creatorId === socket.id;
-          room.users.delete(socket.id);
 
-          if (room.users.size === 0) {
-            rooms.delete(currentRoomId);
-            return;
-          }
-          
-          if (wasCreator) {
-            const newCreatorId = room.users.keys().next().value;
-            room.creatorId = newCreatorId;
-            const newCreatorUsername = room.users.get(newCreatorId);
-            sendSystemMessage(currentRoomId, `${username} (the room owner) has left. ${newCreatorUsername} is now the new room owner.`);
-            io.to(currentRoomId).emit('creator-update', room.creatorId);
-          } else if (username) {
-             sendSystemMessage(currentRoomId, `${username} has left the room.`);
-          }
-          
-          io.to(currentRoomId).emit('user-list-update', getRoomUsers(currentRoomId));
+          // Set a timeout to remove the user after a grace period.
+          const timeoutId = setTimeout(() => {
+            const currentRoom = rooms.get(currentRoomId!);
+            // Only remove if they haven't reconnected (i.e., the old socket ID is still in users).
+            if (currentRoom && currentRoom.users.has(socket.id)) {
+              currentRoom.users.delete(socket.id);
+
+              if (currentRoom.users.size === 0) {
+                rooms.delete(currentRoomId!);
+                return; // Room is empty, no need to send updates
+              }
+              
+              if (wasCreator) {
+                const newCreatorId = currentRoom.users.keys().next().value;
+                currentRoom.creatorId = newCreatorId;
+                const newCreatorUsername = currentRoom.users.get(newCreatorId);
+                sendSystemMessage(currentRoomId!, `${username} (the room owner) has left. ${newCreatorUsername} is now the new room owner.`);
+                io.to(currentRoomId!).emit('creator-update', currentRoom.creatorId);
+              } else {
+                 sendSystemMessage(currentRoomId!, `${username} has left the room.`);
+              }
+              
+              io.to(currentRoomId!).emit('user-list-update', getRoomUsers(currentRoomId!));
+            }
+            disconnectionTimeouts.delete(socket.id);
+          }, 15000); // 15-second grace period
+
+          disconnectionTimeouts.set(socket.id, timeoutId);
         }
       }
     });
