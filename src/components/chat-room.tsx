@@ -234,7 +234,6 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
       auth: { roomCreationInfo: creationInfoJSON } 
     });
     socketRef.current = socket;
-    sessionStorage.removeItem('roomCreationInfo');
 
     socket.on('user-list-update', (updatedUsers: User[]) => {
       setUsers(updatedUsers);
@@ -283,9 +282,13 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     if (!socket) return;
 
     const handleSpeakerUpdate = (newSpeakerId: string | null) => {
-        setSpeakerId(newSpeakerId);
-        if (newSpeakerId && newSpeakerId !== socket.id) {
-            playQueue();
+        if (socket.id !== newSpeakerId) {
+            setSpeakerId(newSpeakerId);
+            if (newSpeakerId) {
+                playQueue();
+            }
+        } else {
+            setSpeakerId(newSpeakerId);
         }
     };
 
@@ -294,7 +297,9 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
         if (!audioContextRef.current) return;
         const float32Data = new Float32Array(data);
         audioQueueRef.current.push(float32Data);
-        playQueue();
+        if (!isPlayingRef.current) {
+            playQueue();
+        }
     };
 
     socket.on('speaker-update', handleSpeakerUpdate);
@@ -336,6 +341,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
         username,
       }, (response: { success: boolean, roomState?: any, error?: string }) => {
         if (response.success) {
+            sessionStorage.removeItem('roomCreationInfo');
             const data = response.roomState;
             setMessages(data.messages);
             setUsers(data.users);
@@ -940,3 +946,5 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     </div>
   );
 }
+
+    
