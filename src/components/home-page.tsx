@@ -83,39 +83,14 @@ export default function HomePage() {
     router.push(`/chat/${newRoomId}`);
   };
 
-  const joinRoom = async (e: React.FormEvent<HTMLFormElement>) => {
+  const joinRoom = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (loading || !validateUsername()) return;
     
     const trimmedRoomId = joinRoomId.trim();
     if (trimmedRoomId) {
       setLoading('join');
-      try {
-        const response = await fetch(`/api/check-room?roomId=${trimmedRoomId}`);
-        if (!response.ok) {
-          throw new Error('Server check failed');
-        }
-        const data = await response.json();
-
-        if (data.exists) {
-          router.push(`/chat/${trimmedRoomId}`);
-        } else {
-          toast({
-            title: "Room Not Found",
-            description: "The room you're trying to join doesn't exist. Please check the ID or create a new room.",
-            variant: "destructive",
-          });
-          setLoading(null);
-        }
-      } catch (error) {
-        console.error("Failed to check room:", error);
-        toast({
-          title: "Error",
-          description: "Could not connect to the server. Please try again later.",
-          variant: "destructive",
-        });
-        setLoading(null);
-      }
+      router.push(`/chat/${trimmedRoomId}`);
     } else {
       toast({
         title: 'Error',
