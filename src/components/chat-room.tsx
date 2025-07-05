@@ -111,6 +111,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   const audioQueueRef = useRef<Float32Array[]>([]);
   const isPlayingRef = useRef(false);
   const isSpeakingRef = useRef(false);
+  const [isAudioPausedToastShown, setIsAudioPausedToastShown] = useState(false);
 
   const speaker = users.find(u => u.id === speakerId);
 
@@ -162,11 +163,14 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   const playQueue = useCallback(() => {
     const audioContext = audioContextRef.current;
     if (audioContext?.state === 'suspended') {
-      toast({
-        title: "Audio Paused",
-        description: "Click anywhere on the page to enable audio playback.",
-        variant: "default",
-      });
+      if (!isAudioPausedToastShown) {
+        toast({
+          title: "Audio Paused",
+          description: "Click anywhere on the page to enable audio playback.",
+          variant: "default",
+        });
+        setIsAudioPausedToastShown(true);
+      }
       return;
     }
     
@@ -194,7 +198,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     } else {
         isPlayingRef.current = false;
     }
-  }, [isMuted, speakerId, toast]);
+  }, [isMuted, speakerId, toast, isAudioPausedToastShown]);
 
   useEffect(() => {
     if (typeof navigator !== 'undefined' && navigator.share) {
@@ -228,7 +232,9 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   useEffect(() => {
     const resumeAudioContext = () => {
       if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume().catch(e => console.error("Failed to resume audio context on user gesture", e));
+        audioContextRef.current.resume().then(() => {
+            setIsAudioPausedToastShown(false);
+        }).catch(e => console.error("Failed to resume audio context on user gesture", e));
       }
     };
 
