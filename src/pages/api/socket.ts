@@ -67,26 +67,36 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
       }
       
       let room = rooms.get(roomId);
-      const roomExists = !!room;
-      const creationInfoJSON = socket.handshake.auth.roomCreationInfo;
 
-      if (!roomExists) {
+      // Room doesn't exist, let's see if we can create it
+      if (!room) {
+        const creationInfoJSON = socket.handshake.auth.roomCreationInfo;
         if (creationInfoJSON) {
            try {
             const creationInfo = JSON.parse(creationInfoJSON);
+            // We can only create a room if the creation info matches the room ID we're trying to join.
             if (creationInfo.roomId === roomId) {
-              rooms.set(roomId, { name: creationInfo.roomName, users: new Map(), messages: [], creatorId: socket.id, speakerId: null });
+              rooms.set(roomId, { 
+                name: creationInfo.roomName, 
+                users: new Map(), 
+                messages: [], 
+                creatorId: socket.id, 
+                speakerId: null 
+              });
               room = rooms.get(roomId)!;
             }
-           } catch (e) { console.error("Failed to parse room creation info on server", e); }
-        } else {
-           if (callback) callback({ success: false, error: 'Room not found' });
-           return;
+           } catch (e) { 
+             console.error("Failed to parse room creation info on server", e);
+             // If parsing fails, we can't create the room.
+             if (callback) callback({ success: false, error: 'Invalid room creation data.' });
+             return;
+           }
         }
       }
       
+      // If after all that, the room still doesn't exist, then it's a failure.
       if (!room) {
-        if (callback) callback({ success: false, error: 'Room could not be found or created' });
+        if (callback) callback({ success: false, error: 'Room not found' });
         return;
       }
 
@@ -219,7 +229,9 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
         return;
       }
       const room = rooms.get(currentRoomId);
-      if (room && room.users.has(socket.id)) {
+      if (!room) return;
+      
+      if (room.users.has(socket.id)) {
         const username = room.users.get(socket.id)!;
         const wasCreator = room.creatorId === socket.id;
         const wasSpeaker = room.speakerId === socket.id;
