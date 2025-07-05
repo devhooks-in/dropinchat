@@ -290,8 +290,8 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     if (navigator.share) {
         try {
             await navigator.share({
-                title: `Join my DropInChat room: ${currentRoomName}`,
-                text: `Click the link to join the chat room "${currentRoomName}"`,
+                title: `Join: ${currentRoomName}`,
+                text: `Join me in the chat room "${currentRoomName}": ${window.location.href}`,
                 url: window.location.href,
             });
         } catch (error) {
@@ -716,3 +716,5 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     </div>
   );
 }
+
+    
