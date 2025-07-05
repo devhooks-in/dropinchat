@@ -669,7 +669,9 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                                     </div>
                                 </div>
                             ) : msg.attachment?.type.startsWith('audio/') ? (
-                                <audio src={msg.attachment.data} controls className="w-full my-2" />
+                                <div className="my-2">
+                                  <audio src={msg.attachment.data} controls className="w-full" />
+                                </div>
                             ) : msg.attachment ? (
                                 <a href={msg.attachment.data} download={msg.attachment.name} className="grid grid-cols-[auto_1fr] items-center gap-2 my-2 p-2 rounded-md bg-background/20 hover:bg-background/40">
                                     <FileText className="h-6 w-6 shrink-0" />
@@ -695,29 +697,47 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
 
                 <div className="border-t p-4 bg-background">
                     {attachment && (
-                      <div className="relative mb-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-md border bg-card p-2">
-                        {attachment.type.startsWith('audio/') ? (
-                           <audio src={attachment.data} controls className="h-10" />
-                        ) : attachment.type.startsWith('image/') ? (
-                            <img src={attachment.data} alt="Preview" className="h-12 w-12 rounded-md object-cover flex-shrink-0" />
-                        ) : attachment.type.startsWith('video/') ? (
-                            <video src={attachment.data} className="h-12 w-12 rounded-md object-cover flex-shrink-0 bg-black" />
-                        ): (
-                            <FileText className="h-8 w-8 shrink-0 text-muted-foreground" />
-                        )}
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{attachment.name}</p>
-                          <p className="text-xs text-muted-foreground">{ (attachment.data.length / 1024).toFixed(2) } KB</p>
+                        <div className="relative mb-2">
+                          {attachment.type.startsWith('audio/') ? (
+                            <div className="flex flex-col gap-2 rounded-md border bg-card p-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Mic className="h-6 w-6 text-muted-foreground flex-shrink-0" />
+                                  <div className="flex-grow min-w-0">
+                                    <p className="truncate text-sm font-medium">{attachment.name}</p>
+                                    <p className="text-xs text-muted-foreground">{ (attachment.data.length / 1024).toFixed(2) } KB</p>
+                                  </div>
+                                </div>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => setAttachment(null)}>
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <audio src={attachment.data} controls className="w-full h-10" />
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-md border bg-card p-2">
+                              {attachment.type.startsWith('image/') ? (
+                                  <img src={attachment.data} alt="Preview" className="h-12 w-12 rounded-md object-cover flex-shrink-0" />
+                              ) : attachment.type.startsWith('video/') ? (
+                                  <video src={attachment.data} className="h-12 w-12 rounded-md object-cover flex-shrink-0 bg-black" />
+                              ): (
+                                  <FileText className="h-8 w-8 shrink-0 text-muted-foreground" />
+                              )}
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium">{attachment.name}</p>
+                                <p className="text-xs text-muted-foreground">{ (attachment.data.length / 1024).toFixed(2) } KB</p>
+                              </div>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setAttachment(null)}>
+                                  <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                          {(isAttachingFile || isRecording) && (
+                            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/80">
+                              <Loader2 className="h-6 w-6 animate-spin" />
+                            </div>
+                          )}
                         </div>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setAttachment(null)}>
-                            <X className="h-4 w-4" />
-                        </Button>
-                        {(isAttachingFile || isRecording) && (
-                          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/80">
-                            <Loader2 className="h-6 w-6 animate-spin" />
-                          </div>
-                        )}
-                      </div>
                     )}
                   <form onSubmit={handleSendMessage} className="flex items-center gap-2">
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,video/*,audio/*,application/pdf" />
