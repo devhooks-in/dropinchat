@@ -71,7 +71,7 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
 
       if (!rooms.has(roomId)) {
           if (isCreationAttempt) {
-              // This is a new room creation, as a name was provided.
+              // This is a valid creation of a new room.
               rooms.set(roomId, { name: roomName!, users: new Map(), messages: [], creatorId: socket.id });
           } else {
               // This is an attempt to join a non-existent room. Reject it.
