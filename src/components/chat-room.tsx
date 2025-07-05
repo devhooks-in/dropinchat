@@ -111,6 +111,8 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   const isPlayingRef = useRef(false);
   const isSpeakingRef = useRef(false);
 
+  const speaker = users.find(u => u.id === speakerId);
+
   const playNotificationSound = useCallback(() => {
     if (!audioContextRef.current) {
        try {
@@ -617,15 +619,6 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" onClick={handleToggleMute} className="hover:bg-card hover:text-foreground dark:hover:bg-secondary">
-                            {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-                            <span className="sr-only">{isMuted ? 'Unmute' : 'Mute'}</span>
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent><p>{isMuted ? 'Unmute' : 'Mute'}</p></TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                    <TooltipTrigger asChild>
                          <Button variant={isSpeaking ? "destructive" : "ghost"} size="icon" onClick={handleToggleSpeaking} disabled={isConnectingMic} className={`${isSpeaking ? "" : "hover:bg-card hover:text-foreground dark:hover:bg-secondary"}`}>
                             {isConnectingMic ? <Loader2 className="h-5 w-5 animate-spin" /> : isSpeaking ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                             <span className="sr-only">{isConnectingMic ? "Connecting microphone..." : isSpeaking ? 'Stop Speaking' : 'Start Speaking'}</span>
@@ -726,6 +719,25 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             </Card>
 
             <div className="flex-1 flex flex-col h-full bg-white dark:bg-gray-100">
+              {speaker && (
+                <div className="flex items-center gap-3 border-b bg-background/50 px-4 py-2 shrink-0 animate-fade-in">
+                  <Mic className="h-5 w-5 text-primary animate-pulse" />
+                  <p className="flex-1 text-sm font-medium">
+                    {speaker.id === socketRef.current?.id ? 'You are speaking...' : `${speaker.name} is speaking...`}
+                  </p>
+                  <TooltipProvider>
+                      <Tooltip>
+                          <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" onClick={handleToggleMute} className="h-8 w-8 hover:bg-card hover:text-foreground dark:hover:bg-secondary">
+                                  {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                                  <span className="sr-only">{isMuted ? 'Unmute' : 'Mute'}</span>
+                              </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>{isMuted ? 'Unmute' : 'Mute'}</p></TooltipContent>
+                      </Tooltip>
+                  </TooltipProvider>
+                </div>
+              )}
               {isLoading ? (
                 <div className="flex-1 p-4 space-y-6 animate-pulse">
                   <div className="flex items-end gap-2 justify-start">
