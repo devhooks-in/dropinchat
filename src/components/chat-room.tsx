@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Paperclip, X, FileText, Download, Share2, Loader2, QrCode, Mic, Square, Volume2, VolumeX } from 'lucide-react';
+import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Paperclip, X, FileText, Download, Share2, Loader2, QrCode, Mic, Square, Play, Maximize } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
 import UserList from './user-list';
 import { useToast } from '@/hooks/use-toast';
@@ -99,55 +99,60 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [roomUrl, setRoomUrl] = useState('');
   const [isClient, setIsClient] = useState(false);
+  
+  // Audio recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
-  // Audio streaming state
-  const [speakerId, setSpeakerId] = useState<string | null>(null);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isConnectingMic, setIsConnectingMic] = useState(false);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
-  const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const audioQueueRef = useRef<Float32Array[]>([]);
-  const isPlayingRef = useRef(false);
-  const isSpeakingRef = useRef(false);
-  const [isAudioContextSuspended, setIsAudioContextSuspended] = useState(false);
-
-  const speaker = users.find(u => u.id === speakerId);
+  // Media preview state
+  const [previewMedia, setPreviewMedia] = useState<{ name: string; type: string; data: string } | null>(null);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
   const playNotificationSound = useCallback(() => {
-    if (!audioContextRef.current) {
-       try {
-            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 48000 });
+    if ('AudioContext' in window || 'webkitAudioContext' in window) {
+      if (!audioContextRef.current) {
+        try {
+          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
         } catch (e) {
             console.error("Web Audio API is not supported in this browser");
             return;
         }
-    }
-    
-    const audioContext = audioContextRef.current;
-    if (!audioContext || audioContext.state !== 'running') return;
+      }
+      
+      const audioContext = audioContextRef.current;
+      if (!audioContext || audioContext.state !== 'running') {
+        const resumeAudio = () => {
+          audioContext?.resume().then(() => {
+            document.removeEventListener('click', resumeAudio);
+            document.removeEventListener('touchstart', resumeAudio);
+          });
+        };
+        document.addEventListener('click', resumeAudio);
+        document.addEventListener('touchstart', resumeAudio);
+        if (audioContext.state !== 'running') return;
+      }
 
-    try {
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
+      try {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
 
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5 note
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.5);
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5 note
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.5);
 
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
 
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
-    } catch(e) {
-      console.error("Could not play notification sound", e);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+      } catch(e) {
+        console.error("Could not play notification sound", e);
+      }
     }
   }, []);
 
@@ -159,50 +164,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
         }
     }, 100);
   }, []);
-
-  const playQueue = useCallback(() => {
-    if (!audioContextRef.current) {
-      try {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 48000 });
-      } catch (e) {
-        console.error("Web Audio API is not supported in this browser");
-        return;
-      }
-    }
-    const audioContext = audioContextRef.current;
-    
-    if (audioContext.state === 'suspended') {
-      setIsAudioContextSuspended(true);
-      return;
-    }
-    setIsAudioContextSuspended(false);
-    
-    if (isPlayingRef.current || audioQueueRef.current.length === 0 || isMuted || !speakerId) {
-        return;
-    }
-
-    isPlayingRef.current = true;
-    const audioData = audioQueueRef.current.shift();
-
-    if (audioContext && audioData) {
-        const buffer = audioContext.createBuffer(1, audioData.length, audioContext.sampleRate);
-        buffer.getChannelData(0).set(audioData);
-
-        const source = audioContext.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioContext.destination);
-        source.start();
-        source.onended = () => {
-            isPlayingRef.current = false;
-            if (audioQueueRef.current.length > 0) {
-              playQueue();
-            }
-        };
-    } else {
-        isPlayingRef.current = false;
-    }
-  }, [isMuted, speakerId]);
-
+  
   useEffect(() => {
     if (typeof navigator !== 'undefined' && navigator.share) {
       setCanShare(true);
@@ -228,10 +190,9 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   useEffect(() => {
     fetch('/api/socket');
 
-    const creationInfoJSON = sessionStorage.getItem('roomCreationInfo');
     const socket = io({ 
       transports: ['websocket'],
-      auth: { roomCreationInfo: creationInfoJSON } 
+      auth: { roomCreationInfo: sessionStorage.getItem('roomCreationInfo') } 
     });
     socketRef.current = socket;
 
@@ -272,70 +233,12 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     });
 
     return () => {
-      // Stop any active microphone stream
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
-        mediaStreamRef.current = null;
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        mediaRecorderRef.current.stop();
       }
-      if (scriptProcessorRef.current) {
-        scriptProcessorRef.current.disconnect();
-        scriptProcessorRef.current = null;
-      }
-      if (audioSourceRef.current) {
-        audioSourceRef.current.disconnect();
-        audioSourceRef.current = null;
-      }
-
-      // Stop audio playback and clear queue
-      audioQueueRef.current = [];
-      isPlayingRef.current = false;
-      
-      // Close the audio context
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-          audioContextRef.current.close().catch(e => console.error("Error closing audio context", e));
-          audioContextRef.current = null;
-      }
-      
       socket.disconnect();
     };
   }, [router, toast, roomId]);
-
-  // Audio-related socket listeners
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-
-    const handleSpeakerUpdate = (newSpeakerId: string | null) => {
-        setSpeakerId(newSpeakerId);
-        if (newSpeakerId && socket.id !== newSpeakerId) {
-            playQueue();
-        }
-    };
-
-    const handleAudioData = (data: ArrayBuffer) => {
-        if (isMuted) return;
-        if (!audioContextRef.current) {
-          try {
-            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 48000 });
-          } catch(e) {
-            return;
-          }
-        }
-        const float32Data = new Float32Array(data);
-        audioQueueRef.current.push(float32Data);
-        if (!isPlayingRef.current) {
-            playQueue();
-        }
-    };
-
-    socket.on('speaker-update', handleSpeakerUpdate);
-    socket.on('audio-data', handleAudioData);
-
-    return () => {
-        socket.off('speaker-update', handleSpeakerUpdate);
-        socket.off('audio-data', handleAudioData);
-    };
-  }, [playQueue, isMuted]);
   
   // New message listener
   useEffect(() => {
@@ -373,7 +276,6 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             setCreatorId(data.creatorId);
             setIsCreator(data.creatorId === socket.id);
             setCurrentRoomName(data.roomName);
-            setSpeakerId(data.speakerId);
             setIsLoading(false);
             scrollToBottom();
             sessionStorage.removeItem('roomCreationInfo');
@@ -497,10 +399,10 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      if (file.size > 25 * 1024 * 1024) { // 25MB limit
         toast({
           title: 'File too large',
-          description: 'Please select a file smaller than 5MB.',
+          description: 'Please select a file smaller than 25MB.',
           variant: 'destructive'
         });
         return;
@@ -523,100 +425,55 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     }
   };
 
-  const handleToggleMute = () => {
-      setIsMuted(prev => !prev);
-  };
+  const handleToggleRecording = async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      // onstop handler will handle the rest
+      return;
+    }
 
-  const handleResumeAudio = () => {
-    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-      audioContextRef.current.resume().then(() => {
-        setIsAudioContextSuspended(false);
-        if (audioQueueRef.current.length > 0) {
-          playQueue();
-        }
-      }).catch(e => {
-        console.error("Failed to resume audio context", e);
-        toast({
-          title: "Audio Error",
-          description: "Could not enable audio. Please check browser permissions.",
-          variant: "destructive"
-        })
+    // Start recording
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.addEventListener('dataavailable', (event) => {
+        audioChunksRef.current.push(event.data);
+      });
+
+      mediaRecorder.addEventListener('stop', () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const base64Data = reader.result as string;
+          setAttachment({
+            name: `recording-${Date.now()}.webm`,
+            type: 'audio/webm',
+            data: base64Data,
+          });
+        };
+        // Stop all tracks to release the microphone
+        stream.getTracks().forEach((track) => track.stop());
+        setIsRecording(false);
+      });
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setAttachment(null); // Clear any other selected attachment
+      setInput(''); // Clear text input
+    } catch (err) {
+      console.error('Error accessing microphone:', err);
+      toast({
+        title: 'Microphone Error',
+        description: 'Could not access your microphone. Please check permissions.',
+        variant: 'destructive',
       });
     }
   };
 
-  const handleToggleSpeaking = useCallback(async () => {
-    if (isConnectingMic) return;
-
-    if (isSpeakingRef.current) {
-        if (mediaStreamRef.current) {
-            mediaStreamRef.current.getTracks().forEach(track => track.stop());
-            mediaStreamRef.current = null;
-        }
-        if (scriptProcessorRef.current) {
-            scriptProcessorRef.current.disconnect();
-            scriptProcessorRef.current = null;
-        }
-        if (audioSourceRef.current) {
-            audioSourceRef.current.disconnect();
-            audioSourceRef.current = null;
-        }
-        socketRef.current?.emit('stop-speaking', roomId);
-        isSpeakingRef.current = false;
-        setIsSpeaking(false);
-    } else {
-        setIsConnectingMic(true);
-        try {
-            if (!audioContextRef.current) {
-                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ latencyHint: 'interactive', sampleRate: 48000 });
-            }
-            if (audioContextRef.current.state === 'suspended') {
-                await audioContextRef.current.resume();
-            }
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true,
-                latency: 0.01,
-            } });
-            mediaStreamRef.current = stream;
-            
-            const audioContext = audioContextRef.current;
-            const source = audioContext.createMediaStreamSource(stream);
-            audioSourceRef.current = source;
-            
-            const bufferSize = 4096;
-            const processor = audioContext.createScriptProcessor(bufferSize, 1, 1);
-            scriptProcessorRef.current = processor;
-            
-            processor.onaudioprocess = (e) => {
-                if (!isSpeakingRef.current) return;
-                const inputData = e.inputBuffer.getChannelData(0);
-                socketRef.current?.emit('audio-data', { roomId, data: inputData.buffer });
-            };
-            
-            source.connect(processor);
-            
-            const gainNode = audioContext.createGain();
-            gainNode.gain.value = 0;
-            processor.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-
-            socketRef.current?.emit('start-speaking', roomId);
-            isSpeakingRef.current = true;
-            setIsSpeaking(true);
-        } catch (err) {
-            console.error('Error accessing microphone:', err);
-            toast({
-                title: 'Microphone Error',
-                description: 'Could not access your microphone. Please check permissions.',
-                variant: 'destructive',
-            });
-        } finally {
-            setIsConnectingMic(false);
-        }
-    }
-  }, [roomId, toast, isConnectingMic]);
 
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -652,18 +509,6 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                 <span className="sr-only">Show users</span>
             </Button>
             
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                         <Button variant={isSpeaking ? "destructive" : "ghost"} size="icon" onClick={handleToggleSpeaking} disabled={isConnectingMic} className={`${isSpeaking ? "" : "hover:bg-card hover:text-foreground dark:hover:bg-secondary"}`}>
-                            {isConnectingMic ? <Loader2 className="h-5 w-5 animate-spin" /> : isSpeaking ? <Square className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-                            <span className="sr-only">{isConnectingMic ? "Connecting microphone..." : isSpeaking ? 'Stop Speaking' : 'Start Speaking'}</span>
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent><p>{isConnectingMic ? "Connecting..." : isSpeaking ? 'Stop Speaking' : 'Start Speaking'}</p></TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
-
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="hover:bg-card hover:text-foreground dark:hover:bg-secondary">
@@ -750,39 +595,11 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                     <CardTitle className="flex items-center gap-2 text-base"><Users className="h-5 w-5" /> Online ({users.length})</CardTitle>
                 </CardHeader>
                 <CardContent className="p-2">
-                   <UserList users={users} username={username} creatorId={creatorId} speakerId={speakerId} onUserTag={handleUserTag} onOpenChangeName={openChangeNameModal} />
+                   <UserList users={users} username={username} creatorId={creatorId} onUserTag={handleUserTag} onOpenChangeName={openChangeNameModal} />
                 </CardContent>
             </Card>
 
             <div className="flex-1 flex flex-col h-full bg-white dark:bg-gray-100">
-              {isAudioContextSuspended && speakerId ? (
-                <div className="flex items-center justify-center gap-4 border-b bg-primary/10 px-4 py-2 shrink-0 animate-fade-in">
-                  <p className="text-sm font-medium text-primary">
-                    Audio is paused. Click to listen to the live stream.
-                  </p>
-                  <Button onClick={handleResumeAudio} size="sm">
-                    <Volume2 className="mr-2 h-4 w-4" /> Listen Live
-                  </Button>
-                </div>
-              ) : speaker ? (
-                <div className="flex items-center gap-3 border-b bg-background/50 px-4 py-2 shrink-0 animate-fade-in">
-                  <Mic className="h-5 w-5 text-primary animate-pulse" />
-                  <p className="flex-1 text-sm font-medium">
-                    {speaker.id === socketRef.current?.id ? 'You are speaking...' : `${speaker.name} is speaking...`}
-                  </p>
-                  <TooltipProvider>
-                      <Tooltip>
-                          <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" onClick={handleToggleMute} className="h-8 w-8 hover:bg-card hover:text-foreground dark:hover:bg-secondary">
-                                  {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-                                  <span className="sr-only">{isMuted ? 'Unmute' : 'Mute'}</span>
-                              </Button>
-                          </TooltipTrigger>
-                          <TooltipContent><p>{isMuted ? 'Unmute' : 'Mute'}</p></TooltipContent>
-                      </Tooltip>
-                  </TooltipProvider>
-                </div>
-              ) : null }
               {isLoading ? (
                 <div className="flex-1 p-4 space-y-6 animate-pulse">
                   <div className="flex items-end gap-2 justify-start">
@@ -837,13 +654,21 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                             {msg.type === 'user' && msg.user !== username && <p className="text-xs font-bold text-secondary-foreground">{msg.user}</p>}
                             
                             {msg.attachment?.type.startsWith('image/') ? (
-                                <div className="relative my-2 group/attachment">
+                                <div className="relative my-2 group/attachment cursor-pointer" onClick={() => setPreviewMedia(msg.attachment!)}>
                                     <img src={msg.attachment.data} alt={msg.attachment.name} className="max-w-full max-h-48 rounded-md" />
-                                    <a href={msg.attachment.data} download={msg.attachment.name} className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover/attachment:bg-opacity-50 transition-all duration-300 opacity-0 group-hover/attachment:opacity-100 rounded-md cursor-pointer">
-                                        <Download className="h-8 w-8 text-white" />
-                                        <span className="sr-only">Download Image</span>
-                                    </a>
+                                     <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover/attachment:bg-opacity-50 transition-all duration-300 opacity-0 group-hover/attachment:opacity-100 rounded-md">
+                                        <Maximize className="h-8 w-8 text-white" />
+                                    </div>
                                 </div>
+                            ) : msg.attachment?.type.startsWith('video/') ? (
+                                <div className="relative my-2 group/attachment cursor-pointer bg-black rounded-md" onClick={() => setPreviewMedia(msg.attachment!)}>
+                                    <video src={msg.attachment.data} className="max-w-full max-h-48 rounded-md opacity-70" />
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <Play className="h-10 w-10 text-white opacity-80" />
+                                    </div>
+                                </div>
+                            ) : msg.attachment?.type.startsWith('audio/') ? (
+                                <audio src={msg.attachment.data} controls className="w-full my-2" />
                             ) : msg.attachment ? (
                                 <a href={msg.attachment.data} download={msg.attachment.name} className="grid grid-cols-[auto_1fr] items-center gap-2 my-2 p-2 rounded-md bg-background/20 hover:bg-background/40">
                                     <FileText className="h-6 w-6 shrink-0" />
@@ -870,8 +695,12 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                 <div className="border-t p-4 bg-background">
                     {attachment && (
                       <div className="relative mb-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-md border bg-card p-2">
-                        {attachment.type.startsWith('image/') ? (
+                        {attachment.type.startsWith('audio/') ? (
+                           <audio src={attachment.data} controls className="h-10" />
+                        ) : attachment.type.startsWith('image/') ? (
                             <img src={attachment.data} alt="Preview" className="h-12 w-12 rounded-md object-cover flex-shrink-0" />
+                        ) : attachment.type.startsWith('video/') ? (
+                            <video src={attachment.data} className="h-12 w-12 rounded-md object-cover flex-shrink-0 bg-black" />
                         ): (
                             <FileText className="h-8 w-8 shrink-0 text-muted-foreground" />
                         )}
@@ -882,7 +711,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                         <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setAttachment(null)}>
                             <X className="h-4 w-4" />
                         </Button>
-                        {isAttachingFile && (
+                        {(isAttachingFile || isRecording) && (
                           <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/80">
                             <Loader2 className="h-6 w-6 animate-spin" />
                           </div>
@@ -890,20 +719,24 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                       </div>
                     )}
                   <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                    <Button type="button" variant="ghost" size="icon" onClick={handleAttachmentClick}>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,video/*,audio/*,application/pdf" />
+                    <Button type="button" variant="ghost" size="icon" onClick={handleAttachmentClick} disabled={isRecording}>
                         <Paperclip className="h-5 w-5" />
                         <span className="sr-only">Attach file</span>
                     </Button>
                     <Input
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
-                      placeholder="Type a message..."
+                      placeholder={isRecording ? "Recording audio..." : "Type a message..."}
                       className="flex-1 bg-white"
                       autoComplete="off"
-                      disabled={isSpeaking || isConnectingMic}
+                      disabled={isRecording}
                     />
-                    <Button type="submit" size="icon" disabled={(!input.trim() && !attachment) || isSpeaking || isConnectingMic}>
+                     <Button type="button" variant={isRecording ? "destructive" : "ghost"} size="icon" onClick={handleToggleRecording}>
+                      {isRecording ? <Square className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                      <span className="sr-only">{isRecording ? "Stop Recording" : "Record Audio"}</span>
+                    </Button>
+                    <Button type="submit" size="icon" disabled={(!input.trim() && !attachment) || isRecording}>
                       <Send className="h-5 w-5" />
                     </Button>
                   </form>
@@ -920,7 +753,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                 </SheetTitle>
             </SheetHeader>
             <CardContent className="flex-1 p-2 overflow-y-auto">
-                <UserList users={users} username={username} creatorId={creatorId} speakerId={speakerId} onUserTag={(name) => {
+                <UserList users={users} username={username} creatorId={creatorId} onUserTag={(name) => {
                     handleUserTag(name);
                     setIsUsersSheetOpen(false);
                 }} onOpenChangeName={() => {
@@ -1015,6 +848,17 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
               <Skeleton className="h-[220px] w-[220px]" />
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={!!previewMedia} onOpenChange={(open) => !open && setPreviewMedia(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-1 bg-transparent border-0">
+          {previewMedia?.type.startsWith('image/') && (
+              <img src={previewMedia.data} alt={previewMedia.name} className="max-w-full max-h-[90vh] object-contain mx-auto rounded-lg" />
+          )}
+          {previewMedia?.type.startsWith('video/') && (
+              <video src={previewMedia.data} controls autoPlay className="w-full max-h-[90vh] object-contain mx-auto rounded-lg" />
+          )}
         </DialogContent>
       </Dialog>
 

@@ -29,7 +29,7 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
   }
 
   const io = new IOServer(res.socket.server, {
-    maxHttpBufferSize: 1e7, // 10MB
+    maxHttpBufferSize: 2.5e7, // 25MB
   });
   res.socket.server.io = io;
 
@@ -81,7 +81,6 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
                 users: new Map(), 
                 messages: [], 
                 creatorId: socket.id, 
-                speakerId: null 
               });
               room = rooms.get(roomId)!;
             }
@@ -128,7 +127,6 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
                   users: getRoomUsers(roomId),
                   creatorId: room.creatorId,
                   roomName: room.name,
-                  speakerId: room.speakerId,
               }
           });
       }
@@ -196,34 +194,6 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
       }
     });
 
-    socket.on('start-speaking', (roomId: string) => {
-      const room = rooms.get(roomId);
-      if (room) {
-        room.speakerId = socket.id;
-        io.to(roomId).emit('speaker-update', socket.id);
-        const username = room.users.get(socket.id);
-        if (username) {
-            sendSystemMessage(roomId, `${username} started a live audio stream.`);
-        }
-      }
-    });
-
-    socket.on('stop-speaking', (roomId: string) => {
-      const room = rooms.get(roomId);
-      if (room && room.speakerId === socket.id) {
-        room.speakerId = null;
-        io.to(roomId).emit('speaker-update', null);
-        const username = room.users.get(socket.id);
-         if (username) {
-            sendSystemMessage(roomId, `${username} stopped the audio stream.`);
-        }
-      }
-    });
-
-    socket.on('audio-data', ({ roomId, data }: { roomId: string, data: any }) => {
-      socket.to(roomId).emit('audio-data', data);
-    });
-
     socket.on('disconnect', () => {
       if (!currentRoomId) {
         return;
@@ -234,7 +204,6 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
       if (room.users.has(socket.id)) {
         const username = room.users.get(socket.id)!;
         const wasCreator = room.creatorId === socket.id;
-        const wasSpeaker = room.speakerId === socket.id;
 
         const timeoutId = setTimeout(() => {
           const currentRoom = rooms.get(currentRoomId!);
@@ -254,11 +223,6 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
               sendSystemMessage(currentRoomId!, `${username} (the room owner) has left. ${newCreatorUsername} is now the new room owner.`);
               io.to(currentRoomId!).emit('creator-update', currentRoom.creatorId);
               messageSent = true;
-            }
-
-            if(wasSpeaker) {
-                currentRoom.speakerId = null;
-                io.to(currentRoomId!).emit('speaker-update', null);
             }
             
             if (!messageSent) {

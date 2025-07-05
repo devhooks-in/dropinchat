@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { User } from '@/lib/types';
@@ -9,14 +10,13 @@ interface UserListProps {
   users: User[];
   username: string | null;
   creatorId: string | null;
-  speakerId: string | null;
   onUserTag: (username: string) => void;
   onOpenChangeName: () => void;
 }
 
 const getInitials = (name: string) => (name ? name.charAt(0).toUpperCase() : '?');
 
-export default function UserList({ users, username, creatorId, speakerId, onUserTag, onOpenChangeName }: UserListProps) {
+export default function UserList({ users, username, creatorId, onUserTag, onOpenChangeName }: UserListProps) {
   return (
     <ul className="space-y-1">
       {users.map((user) => (
@@ -34,7 +34,6 @@ export default function UserList({ users, username, creatorId, speakerId, onUser
           </Avatar>
           <div className="flex-1 min-w-0 cursor-pointer">
             <span className="font-medium truncate">{user.name}</span>
-            {user.id === speakerId && <Mic className="inline-block ml-2 h-4 w-4 text-primary animate-pulse" />}
             {user.name === username && <span className="text-muted-foreground ml-1">(You)</span>}
             {user.id === creatorId && <span className="text-xs text-primary font-semibold ml-1">(Admin)</span>}
           </div>
