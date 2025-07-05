@@ -199,7 +199,7 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
               io.to(currentRoomId!).emit('user-list-update', getRoomUsers(currentRoomId!));
             }
             disconnectionTimeouts.delete(socket.id);
-          }, 15000); // 15-second grace period
+          }, 60000); // 1-minute grace period
 
           disconnectionTimeouts.set(socket.id, timeoutId);
         }
