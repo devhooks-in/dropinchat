@@ -67,12 +67,14 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
         return;
       }
       
+      const isCreationAttempt = roomName && roomName.trim().length > 0;
+
       if (!rooms.has(roomId)) {
-          if (roomName) {
-              // This is a new room creation
-              rooms.set(roomId, { name: roomName, users: new Map(), messages: [], creatorId: socket.id });
+          if (isCreationAttempt) {
+              // This is a new room creation, as a name was provided.
+              rooms.set(roomId, { name: roomName!, users: new Map(), messages: [], creatorId: socket.id });
           } else {
-              // Trying to join a room that doesn't exist
+              // This is an attempt to join a non-existent room. Reject it.
               if (callback) callback({ success: false, error: 'Room not found' });
               return;
           }
