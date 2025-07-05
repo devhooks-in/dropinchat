@@ -29,7 +29,10 @@ export default function HomePage() {
         variant: "destructive",
         duration: 5000,
       });
-      router.replace('/', { scroll: false });
+      // Clean up the URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('error');
+      router.replace(newUrl.pathname + newUrl.search, { scroll: false });
     }
     
     const storedName = localStorage.getItem('dropinchat-username');
@@ -77,7 +80,6 @@ export default function HomePage() {
     const creationInfo = {
       roomId: newRoomId,
       roomName: newRoomName.trim(),
-      isCreating: true,
     };
     sessionStorage.setItem('roomCreationInfo', JSON.stringify(creationInfo));
     router.push(`/chat/${newRoomId}`);
@@ -163,7 +165,7 @@ export default function HomePage() {
                     className="bg-white"
                   />
                 </div>
-                <Button type="submit" className="w-full" variant="default" size="lg" disabled={!!loading || !isUsernameValid}>
+                <Button type="submit" className="w-full" size="lg" disabled={!!loading || !isUsernameValid}>
                   {loading === 'join' ? (
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   ) : (

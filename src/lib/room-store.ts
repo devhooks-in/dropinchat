@@ -6,6 +6,7 @@ export interface Room {
   users: Map<string, string>; // socket.id -> username
   messages: Message[];
   creatorId: string | null;
+  speakerId: string | null;
 }
 
 // In-memory store for chat rooms.

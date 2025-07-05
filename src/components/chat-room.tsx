@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Paperclip, X, FileText, Download, Share2, Loader2, QrCode } from 'lucide-react';
+import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Paperclip, X, FileText, Download, Share2, Loader2, QrCode, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
 import UserList from './user-list';
 import { useToast } from '@/hooks/use-toast';
@@ -99,8 +99,26 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [roomUrl, setRoomUrl] = useState('');
 
+  // Audio streaming state
+  const [speakerId, setSpeakerId] = useState<string | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const audioQueueRef = useRef<Float32Array[]>([]);
+  const isPlayingRef = useRef(false);
+  const isSpeakingRef = useRef(false);
 
   const playNotificationSound = useCallback(() => {
+    if (!audioContextRef.current) {
+       try {
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        } catch (e) {
+            console.error("Web Audio API is not supported in this browser");
+            return;
+        }
+    }
     if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
       audioContextRef.current.resume();
     }
@@ -136,6 +154,32 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     }, 100);
   }, []);
 
+  const playQueue = useCallback(() => {
+      if (isPlayingRef.current || audioQueueRef.current.length === 0 || isMuted || !speakerId) {
+          return;
+      }
+
+      isPlayingRef.current = true;
+      const audioData = audioQueueRef.current.shift();
+      const audioContext = audioContextRef.current;
+
+      if (audioContext && audioData) {
+          const buffer = audioContext.createBuffer(1, audioData.length, audioContext.sampleRate);
+          buffer.getChannelData(0).set(audioData);
+
+          const source = audioContext.createBufferSource();
+          source.buffer = buffer;
+          source.connect(audioContext.destination);
+          source.start();
+          source.onended = () => {
+              isPlayingRef.current = false;
+              playQueue();
+          };
+      } else {
+          isPlayingRef.current = false;
+      }
+  }, [isMuted, speakerId]);
+
   useEffect(() => {
     if (typeof navigator !== 'undefined' && navigator.share) {
       setCanShare(true);
@@ -167,8 +211,13 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   useEffect(() => {
     fetch('/api/socket');
 
-    const socket = io({ transports: ['websocket'] });
+    const creationInfoJSON = sessionStorage.getItem('roomCreationInfo');
+    const socket = io({ 
+      transports: ['websocket'],
+      auth: { roomCreationInfo: creationInfoJSON } 
+    });
     socketRef.current = socket;
+    sessionStorage.removeItem('roomCreationInfo');
 
     socket.on('user-list-update', (updatedUsers: User[]) => {
       setUsers(updatedUsers);
@@ -206,10 +255,29 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
         toast({ title: 'Room Renamed', description: `The room is now called "${newName}".` });
     });
 
+    socket.on('speaker-update', (newSpeakerId: string | null) => {
+        setSpeakerId(newSpeakerId);
+        if (newSpeakerId && newSpeakerId !== socket.id) {
+            playQueue();
+        }
+    });
+
+    socket.on('audio-data', (data: ArrayBuffer) => {
+        if (isMuted) return;
+        if (audioContextRef.current?.state === 'suspended') {
+            audioContextRef.current.resume();
+        }
+        if (!audioContextRef.current) return;
+        const float32Data = new Float32Array(data);
+        audioQueueRef.current.push(float32Data);
+        playQueue();
+    });
+
+
     return () => {
       socket.disconnect();
     };
-  }, [router, toast]);
+  }, [router, toast, playQueue, isMuted, roomId]);
   
   useEffect(() => {
     const socket = socketRef.current;
@@ -234,25 +302,9 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     if (socket && username && !hasJoined.current) {
       hasJoined.current = true;
 
-      let joinRoomName: string | null = null;
-      let joinIsCreating = false;
-      const creationInfoJSON = sessionStorage.getItem('roomCreationInfo');
-      if (creationInfoJSON) {
-        try {
-            const creationInfo = JSON.parse(creationInfoJSON);
-            if (creationInfo.roomId === roomId) {
-                joinRoomName = creationInfo.roomName;
-                joinIsCreating = creationInfo.isCreating;
-            }
-        } catch (e) { console.error("Failed to parse room creation info", e); }
-        sessionStorage.removeItem('roomCreationInfo');
-      }
-
       socket.emit('join-room', {
         roomId, 
-        roomName: joinRoomName, 
         username,
-        isCreating: joinIsCreating
       }, (response: { success: boolean, roomState?: any, error?: string }) => {
         if (response.success) {
             const data = response.roomState;
@@ -261,6 +313,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             setCreatorId(data.creatorId);
             setIsCreator(data.creatorId === socket.id);
             setCurrentRoomName(data.roomName);
+            setSpeakerId(data.speakerId);
             setIsLoading(false);
             scrollToBottom();
         } else {
@@ -409,6 +462,72 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     }
   };
 
+  const handleToggleMute = () => {
+      setIsMuted(prev => !prev);
+  };
+
+  const handleToggleSpeaking = useCallback(async () => {
+    if (isSpeakingRef.current) {
+        if (mediaStreamRef.current) {
+            mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        }
+        if (scriptProcessorRef.current) {
+            scriptProcessorRef.current.disconnect();
+            scriptProcessorRef.current = null;
+        }
+        if (audioSourceRef.current) {
+            audioSourceRef.current.disconnect();
+            audioSourceRef.current = null;
+        }
+        socketRef.current?.emit('stop-speaking', roomId);
+        isSpeakingRef.current = false;
+        setIsSpeaking(false);
+    } else {
+        try {
+            if (!audioContextRef.current) {
+                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+            }
+            if (audioContextRef.current.state === 'suspended') {
+                await audioContextRef.current.resume();
+            }
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            } });
+            mediaStreamRef.current = stream;
+            
+            const audioContext = audioContextRef.current;
+            const source = audioContext.createMediaStreamSource(stream);
+            audioSourceRef.current = source;
+            
+            const bufferSize = 4096;
+            const processor = audioContext.createScriptProcessor(bufferSize, 1, 1);
+            scriptProcessorRef.current = processor;
+            
+            processor.onaudioprocess = (e) => {
+                if (!isSpeakingRef.current) return;
+                const inputData = e.inputBuffer.getChannelData(0);
+                socketRef.current?.emit('audio-data', { roomId, data: inputData.buffer });
+            };
+            
+            source.connect(processor);
+            processor.connect(audioContext.destination);
+            
+            socketRef.current?.emit('start-speaking', roomId);
+            isSpeakingRef.current = true;
+            setIsSpeaking(true);
+        } catch (err) {
+            console.error('Error accessing microphone:', err);
+            toast({
+                title: 'Microphone Error',
+                description: 'Could not access your microphone. Please check permissions.',
+                variant: 'destructive',
+            });
+        }
+    }
+  }, [roomId, toast]);
+
   return (
     <div className="flex h-screen flex-col bg-background">
       <NamePromptDialog 
@@ -442,6 +561,27 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                 <Users className="h-5 w-5" />
                 <span className="sr-only">Show users</span>
             </Button>
+            
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={handleToggleMute} className="hover:bg-card hover:text-foreground dark:hover:bg-secondary">
+                            {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                            <span className="sr-only">{isMuted ? 'Unmute' : 'Mute'}</span>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{isMuted ? 'Unmute' : 'Mute'}</p></TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                         <Button variant={isSpeaking ? "destructive" : "ghost"} size="icon" onClick={handleToggleSpeaking} className={`${isSpeaking ? "" : "hover:bg-card hover:text-foreground dark:hover:bg-secondary"}`}>
+                            {isSpeaking ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                            <span className="sr-only">{isSpeaking ? 'Stop Speaking' : 'Start Speaking'}</span>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{isSpeaking ? 'Stop Speaking' : 'Start Speaking'}</p></TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
 
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -529,7 +669,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                     <CardTitle className="flex items-center gap-2 text-base"><Users className="h-5 w-5" /> Online ({users.length})</CardTitle>
                 </CardHeader>
                 <CardContent className="p-2">
-                   <UserList users={users} username={username} creatorId={creatorId} onUserTag={handleUserTag} onOpenChangeName={openChangeNameModal} />
+                   <UserList users={users} username={username} creatorId={creatorId} speakerId={speakerId} onUserTag={handleUserTag} onOpenChangeName={openChangeNameModal} />
                 </CardContent>
             </Card>
 
@@ -652,8 +792,9 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                       placeholder="Type a message..."
                       className="flex-1 bg-white"
                       autoComplete="off"
+                      disabled={isSpeaking}
                     />
-                    <Button type="submit" size="icon" disabled={!input.trim() && !attachment}>
+                    <Button type="submit" size="icon" disabled={(!input.trim() && !attachment) || isSpeaking}>
                       <Send className="h-5 w-5" />
                     </Button>
                   </form>
@@ -670,7 +811,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                 </SheetTitle>
             </SheetHeader>
             <CardContent className="flex-1 p-2 overflow-y-auto">
-                <UserList users={users} username={username} creatorId={creatorId} onUserTag={(name) => {
+                <UserList users={users} username={username} creatorId={creatorId} speakerId={speakerId} onUserTag={(name) => {
                     handleUserTag(name);
                     setIsUsersSheetOpen(false);
                 }} onOpenChangeName={() => {

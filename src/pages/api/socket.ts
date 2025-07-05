@@ -28,7 +28,9 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
     return;
   }
 
-  const io = new IOServer(res.socket.server);
+  const io = new IOServer(res.socket.server, {
+    maxHttpBufferSize: 1e7, // 10MB
+  });
   res.socket.server.io = io;
 
   const getRoomUsers = (roomId: string): User[] => {
@@ -56,34 +58,42 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
   io.on('connection', socket => {
     let currentRoomId: string | null = null;
 
-    socket.on('join-room', (data: { roomId: string, roomName: string | null, username: string, isCreating?: boolean }, callback?: (response: { success: boolean; error?: string; roomState?: any }) => void) => {
-      const { roomId, roomName, username, isCreating } = data;
+    socket.on('join-room', (data: { roomId: string, username: string }, callback?: (response: { success: boolean; error?: string; roomState?: any }) => void) => {
+      const { roomId, username } = data;
       
       if (!username) {
         if (callback) callback({ success: false, error: 'Username is required.' });
         return;
       }
       
-      const roomExists = rooms.has(roomId);
+      let room = rooms.get(roomId);
+      const roomExists = !!room;
+      const creationInfoJSON = socket.handshake.auth.roomCreationInfo;
 
       if (!roomExists) {
-        if (isCreating && roomName && roomName.trim().length > 0) {
-          // This is a valid creation of a new room.
-          rooms.set(roomId, { name: roomName, users: new Map(), messages: [], creatorId: socket.id });
+        if (creationInfoJSON) {
+           try {
+            const creationInfo = JSON.parse(creationInfoJSON);
+            if (creationInfo.roomId === roomId) {
+              rooms.set(roomId, { name: creationInfo.roomName, users: new Map(), messages: [], creatorId: socket.id, speakerId: null });
+              room = rooms.get(roomId)!;
+            }
+           } catch (e) { console.error("Failed to parse room creation info on server", e); }
         } else {
-          // Attempting to join a non-existent room, or invalid creation attempt.
-          if (callback) callback({ success: false, error: 'Room not found' });
-          return;
+           if (callback) callback({ success: false, error: 'Room not found' });
+           return;
         }
       }
-      // If room exists, we just let the user join. The isCreating flag is ignored.
+      
+      if (!room) {
+        if (callback) callback({ success: false, error: 'Room could not be found or created' });
+        return;
+      }
 
       currentRoomId = roomId;
       socket.join(roomId);
-      const room = rooms.get(roomId)!;
       
       let isReconnecting = false;
-      // --- Reconnection Logic ---
       for (const [oldSocketId, timeoutId] of disconnectionTimeouts.entries()) {
           if (room.users.get(oldSocketId) === username) {
               clearTimeout(timeoutId);
@@ -108,6 +118,7 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
                   users: getRoomUsers(roomId),
                   creatorId: room.creatorId,
                   roomName: room.name,
+                  speakerId: room.speakerId,
               }
           });
       }
@@ -175,41 +186,77 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
       }
     });
 
+    socket.on('start-speaking', (roomId: string) => {
+      const room = rooms.get(roomId);
+      if (room) {
+        room.speakerId = socket.id;
+        io.to(roomId).emit('speaker-update', socket.id);
+        const username = room.users.get(socket.id);
+        if (username) {
+            sendSystemMessage(roomId, `${username} started a live audio stream.`);
+        }
+      }
+    });
+
+    socket.on('stop-speaking', (roomId: string) => {
+      const room = rooms.get(roomId);
+      if (room && room.speakerId === socket.id) {
+        room.speakerId = null;
+        io.to(roomId).emit('speaker-update', null);
+        const username = room.users.get(socket.id);
+         if (username) {
+            sendSystemMessage(roomId, `${username} stopped the audio stream.`);
+        }
+      }
+    });
+
+    socket.on('audio-data', ({ roomId, data }: { roomId: string, data: any }) => {
+      socket.to(roomId).emit('audio-data', data);
+    });
+
     socket.on('disconnect', () => {
       if (!currentRoomId) {
-        return; // User disconnected without joining a room.
+        return;
       }
       const room = rooms.get(currentRoomId);
       if (room && room.users.has(socket.id)) {
         const username = room.users.get(socket.id)!;
         const wasCreator = room.creatorId === socket.id;
+        const wasSpeaker = room.speakerId === socket.id;
 
-        // Set a timeout to remove the user after a grace period.
         const timeoutId = setTimeout(() => {
           const currentRoom = rooms.get(currentRoomId!);
-          // Only remove if they haven't reconnected (i.e., the old socket ID is still in users).
           if (currentRoom && currentRoom.users.has(socket.id)) {
             currentRoom.users.delete(socket.id);
 
             if (currentRoom.users.size === 0) {
               rooms.delete(currentRoomId!);
-              return; // Room is empty, no need to send updates
+              return;
             }
             
+            let messageSent = false;
             if (wasCreator) {
               const newCreatorId = currentRoom.users.keys().next().value;
               currentRoom.creatorId = newCreatorId;
               const newCreatorUsername = currentRoom.users.get(newCreatorId);
               sendSystemMessage(currentRoomId!, `${username} (the room owner) has left. ${newCreatorUsername} is now the new room owner.`);
               io.to(currentRoomId!).emit('creator-update', currentRoom.creatorId);
-            } else {
+              messageSent = true;
+            }
+
+            if(wasSpeaker) {
+                currentRoom.speakerId = null;
+                io.to(currentRoomId!).emit('speaker-update', null);
+            }
+            
+            if (!messageSent) {
                 sendSystemMessage(currentRoomId!, `${username} has left the room.`);
             }
             
             io.to(currentRoomId!).emit('user-list-update', getRoomUsers(currentRoomId!));
           }
           disconnectionTimeouts.delete(socket.id);
-        }, 60000); // 1-minute grace period
+        }, 30000); // 30-second grace period
 
         disconnectionTimeouts.set(socket.id, timeoutId);
       }
