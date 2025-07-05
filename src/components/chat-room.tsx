@@ -187,7 +187,9 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
         source.start();
         source.onended = () => {
             isPlayingRef.current = false;
-            playQueue();
+            if (audioQueueRef.current.length > 0) {
+              playQueue();
+            }
         };
     } else {
         isPlayingRef.current = false;
@@ -222,6 +224,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     }
   }, []);
 
+  // Main socket connection and static listeners
   useEffect(() => {
     fetch('/api/socket');
 
@@ -269,27 +272,41 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
         toast({ title: 'Room Renamed', description: `The room is now called "${newName}".` });
     });
 
-    socket.on('speaker-update', (newSpeakerId: string | null) => {
+    return () => {
+      socket.disconnect();
+    };
+  }, [router, toast, roomId]);
+
+  // Audio-related socket listeners
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    const handleSpeakerUpdate = (newSpeakerId: string | null) => {
         setSpeakerId(newSpeakerId);
         if (newSpeakerId && newSpeakerId !== socket.id) {
             playQueue();
         }
-    });
+    };
 
-    socket.on('audio-data', (data: ArrayBuffer) => {
+    const handleAudioData = (data: ArrayBuffer) => {
         if (isMuted) return;
         if (!audioContextRef.current) return;
         const float32Data = new Float32Array(data);
         audioQueueRef.current.push(float32Data);
         playQueue();
-    });
+    };
 
+    socket.on('speaker-update', handleSpeakerUpdate);
+    socket.on('audio-data', handleAudioData);
 
     return () => {
-      socket.disconnect();
+        socket.off('speaker-update', handleSpeakerUpdate);
+        socket.off('audio-data', handleAudioData);
     };
-  }, [router, toast, playQueue, isMuted, roomId]);
+  }, [playQueue, isMuted]);
   
+  // New message listener
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket) return;
@@ -308,6 +325,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     };
   }, [username, playNotificationSound]);
 
+  // Join room effect
   useEffect(() => {
     const socket = socketRef.current;
     if (socket && username && !hasJoined.current) {
