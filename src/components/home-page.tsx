@@ -101,7 +101,6 @@ export default function HomePage() {
               placeholder="Enter your name (min. 3 characters)"
               value={username}
               onChange={handleUsernameChange}
-              className="bg-card"
             />
           </div>
 
@@ -119,7 +118,6 @@ export default function HomePage() {
                     placeholder="Enter a name for your new room"
                     value={newRoomName}
                     onChange={(e) => setNewRoomName(e.target.value)}
-                    className="bg-card"
                   />
                 </div>
                 <Button type="submit" className="w-full" size="lg" disabled={!!loading || !isUsernameValid}>
@@ -141,10 +139,9 @@ export default function HomePage() {
                     placeholder="Enter Room ID"
                     value={joinRoomId}
                     onChange={(e) => setJoinRoomId(e.target.value)}
-                    className="bg-card"
                   />
                 </div>
-                <Button type="submit" variant="secondary" className="w-full" disabled={!!loading || !isUsernameValid}>
+                <Button type="submit" variant="secondary" className="w-full" size="lg" disabled={!!loading || !isUsernameValid}>
                   {loading === 'join' ? (
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   ) : (
