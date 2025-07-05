@@ -19,8 +19,10 @@ export default function HomePage() {
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState< 'create' | 'join' | null>(null);
   const { toast } = useToast();
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true);
     const error = searchParams.get('error');
     if (error === 'room_not_found') {
       toast({
@@ -143,7 +145,7 @@ export default function HomePage() {
                     className="bg-white"
                   />
                 </div>
-                <Button type="submit" className="w-full" size="lg" disabled={!!loading || !isUsernameValid}>
+                <Button type="submit" className="w-full" size="lg" disabled={!!loading || (isClient ? !isUsernameValid : true)}>
                   {loading === 'create' ? (
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   ) : (
@@ -165,7 +167,7 @@ export default function HomePage() {
                     className="bg-white"
                   />
                 </div>
-                <Button type="submit" className="w-full" size="lg" disabled={!!loading || !isUsernameValid}>
+                <Button type="submit" className="w-full" size="lg" disabled={!!loading || (isClient ? !isUsernameValid : true)}>
                   {loading === 'join' ? (
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   ) : (
