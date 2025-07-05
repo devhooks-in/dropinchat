@@ -935,6 +935,10 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
       
       <Dialog open={!!previewMedia} onOpenChange={(open) => !open && setPreviewMedia(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] p-1 bg-transparent border-0 shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Media Preview: {previewMedia?.name}</DialogTitle>
+            <DialogDescription>A larger view of the shared media. You can download it from here.</DialogDescription>
+          </DialogHeader>
           {previewMedia?.type.startsWith('image/') && (
               <img src={previewMedia.data} alt={previewMedia.name} className="max-w-full max-h-[90vh] object-contain mx-auto rounded-lg" />
           )}
