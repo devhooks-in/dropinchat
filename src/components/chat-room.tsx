@@ -236,6 +236,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
         mediaRecorderRef.current.stop();
       }
+      audioContextRef.current?.close();
       socket.disconnect();
     };
   }, [router, toast, roomId]);
