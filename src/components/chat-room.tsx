@@ -103,6 +103,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   const [speakerId, setSpeakerId] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [isConnectingMic, setIsConnectingMic] = useState(false);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
@@ -507,6 +508,8 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
   };
 
   const handleToggleSpeaking = useCallback(async () => {
+    if (isConnectingMic) return;
+
     if (isSpeakingRef.current) {
         if (mediaStreamRef.current) {
             mediaStreamRef.current.getTracks().forEach(track => track.stop());
@@ -523,6 +526,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
         isSpeakingRef.current = false;
         setIsSpeaking(false);
     } else {
+        setIsConnectingMic(true);
         try {
             if (!audioContextRef.current) {
                 audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -570,9 +574,11 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                 description: 'Could not access your microphone. Please check permissions.',
                 variant: 'destructive',
             });
+        } finally {
+            setIsConnectingMic(false);
         }
     }
-  }, [roomId, toast]);
+  }, [roomId, toast, isConnectingMic]);
 
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -620,12 +626,12 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                         <Button variant={isSpeaking ? "destructive" : "ghost"} size="icon" onClick={handleToggleSpeaking} className={`${isSpeaking ? "" : "hover:bg-card hover:text-foreground dark:hover:bg-secondary"}`}>
-                            {isSpeaking ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-                            <span className="sr-only">{isSpeaking ? 'Stop Speaking' : 'Start Speaking'}</span>
+                         <Button variant={isSpeaking ? "destructive" : "ghost"} size="icon" onClick={handleToggleSpeaking} disabled={isConnectingMic} className={`${isSpeaking ? "" : "hover:bg-card hover:text-foreground dark:hover:bg-secondary"}`}>
+                            {isConnectingMic ? <Loader2 className="h-5 w-5 animate-spin" /> : isSpeaking ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                            <span className="sr-only">{isConnectingMic ? "Connecting microphone..." : isSpeaking ? 'Stop Speaking' : 'Start Speaking'}</span>
                         </Button>
                     </TooltipTrigger>
-                    <TooltipContent><p>{isSpeaking ? 'Stop Speaking' : 'Start Speaking'}</p></TooltipContent>
+                    <TooltipContent><p>{isConnectingMic ? "Connecting..." : isSpeaking ? 'Stop Speaking' : 'Start Speaking'}</p></TooltipContent>
                 </Tooltip>
             </TooltipProvider>
 
@@ -838,9 +844,9 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
                       placeholder="Type a message..."
                       className="flex-1 bg-white"
                       autoComplete="off"
-                      disabled={isSpeaking}
+                      disabled={isSpeaking || isConnectingMic}
                     />
-                    <Button type="submit" size="icon" disabled={(!input.trim() && !attachment) || isSpeaking}>
+                    <Button type="submit" size="icon" disabled={(!input.trim() && !attachment) || isSpeaking || isConnectingMic}>
                       <Send className="h-5 w-5" />
                     </Button>
                   </form>
