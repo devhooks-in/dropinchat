@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { LogIn, PlusCircle, MessageSquare, Loader2 } from 'lucide-react';
+import { LogIn, PlusCircle, MessageSquare, Loader2, QrCode } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function HomePage() {
   const router = useRouter();
@@ -78,6 +79,12 @@ export default function HomePage() {
       });
     }
   };
+  
+  const handleScan = () => {
+    if (loading || !validateUsername()) return;
+    setLoading('join');
+    router.push('/scan');
+  };
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -101,58 +108,70 @@ export default function HomePage() {
             />
           </div>
 
-          <form onSubmit={createRoom} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="roomName">New Room Name</Label>
-              <Input
-                id="roomName"
-                placeholder="Enter a name for your new room"
-                value={newRoomName}
-                onChange={(e) => setNewRoomName(e.target.value)}
-                className="bg-card"
-              />
-            </div>
-            <Button type="submit" className="w-full" size="lg" disabled={!!loading}>
-              {loading === 'create' ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              ) : (
-                <PlusCircle className="mr-2 h-5 w-5" />
-              )}
-              Create & Join Room
+          <Tabs defaultValue="create" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="create">Create Room</TabsTrigger>
+              <TabsTrigger value="join">Join Room</TabsTrigger>
+            </TabsList>
+            <TabsContent value="create" className="pt-4">
+               <form onSubmit={createRoom} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="roomName">New Room Name</Label>
+                  <Input
+                    id="roomName"
+                    placeholder="Enter a name for your new room"
+                    value={newRoomName}
+                    onChange={(e) => setNewRoomName(e.target.value)}
+                    className="bg-card"
+                  />
+                </div>
+                <Button type="submit" className="w-full" size="lg" disabled={!!loading}>
+                  {loading === 'create' ? (
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  ) : (
+                    <PlusCircle className="mr-2 h-5 w-5" />
+                  )}
+                  Create & Join Room
+                </Button>
+              </form>
+            </TabsContent>
+            <TabsContent value="join" className="pt-4 space-y-4">
+              <form onSubmit={joinRoom} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="joinRoomId">Join with Room ID</Label>
+                  <Input
+                    id="joinRoomId"
+                    placeholder="Enter Room ID"
+                    value={joinRoomId}
+                    onChange={(e) => setJoinRoomId(e.target.value)}
+                    className="bg-card"
+                  />
+                </div>
+                <Button type="submit" variant="secondary" className="w-full" disabled={!!loading}>
+                  {loading === 'join' ? (
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  ) : (
+                    <LogIn className="mr-2 h-5 w-5" />
+                  )}
+                  Join with ID
+                </Button>
+              </form>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">
+                    Or
+                  </span>
+                </div>
+              </div>
+              <Button variant="outline" className="w-full" onClick={handleScan} disabled={!!loading}>
+                <QrCode className="mr-2 h-5 w-5" />
+                Scan QR Code to Join
             </Button>
-          </form>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">
-                Or
-              </span>
-            </div>
-          </div>
-
-          <form onSubmit={joinRoom} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="joinRoomId">Join an Existing Room</Label>
-              <Input
-                id="joinRoomId"
-                placeholder="Enter Room ID"
-                value={joinRoomId}
-                onChange={(e) => setJoinRoomId(e.target.value)}
-                className="bg-card"
-              />
-            </div>
-            <Button type="submit" variant="secondary" className="w-full" disabled={!!loading}>
-              {loading === 'join' ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              ) : (
-                <LogIn className="mr-2 h-5 w-5" />
-              )}
-              Join Room
-            </Button>
-          </form>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
       <footer className="mt-8 text-center text-sm text-muted-foreground">

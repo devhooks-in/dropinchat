@@ -10,10 +10,11 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Paperclip, X, FileText, Download, Share2, Loader2 } from 'lucide-react';
+import { Send, Users, ArrowLeft, MoreVertical, Eraser, Trash2, Pencil, Hash, Link, Paperclip, X, FileText, Download, Share2, Loader2, QrCode } from 'lucide-react';
 import NamePromptDialog from './name-prompt-dialog';
 import UserList from './user-list';
 import { useToast } from '@/hooks/use-toast';
+import { QRCodeCanvas } from 'qrcode.react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -95,6 +96,8 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
   const [isClearing, setIsClearing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAttachingFile, setIsAttachingFile] = useState(false);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [roomUrl, setRoomUrl] = useState('');
 
   const playNotificationSound = useCallback(() => {
     if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
@@ -136,6 +139,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     if (typeof navigator !== 'undefined' && navigator.share) {
       setCanShare(true);
     }
+    setRoomUrl(window.location.href);
   }, []);
 
   useEffect(() => {
@@ -437,6 +441,10 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                         <Hash className="mr-2 h-4 w-4" />
                         <span>Copy Room ID</span>
                     </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setIsQrModalOpen(true)}>
+                        <QrCode className="mr-2 h-4 w-4" />
+                        <span>Show QR Code</span>
+                    </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
             
@@ -618,7 +626,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       placeholder="Type a message..."
-                      className="flex-1 bg-card"
+                      className="flex-1"
                       autoComplete="off"
                     />
                     <Button type="submit" size="icon" disabled={!input.trim() && !attachment}>
@@ -713,8 +721,29 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
           </form>
         </DialogContent>
       </Dialog>
+      
+      <Dialog open={isQrModalOpen} onOpenChange={setIsQrModalOpen}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Scan to Join Room</DialogTitle>
+            <DialogDescription>
+              Others can scan this code to join the chat.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-center p-4 bg-white rounded-md">
+            {roomUrl ? (
+              <QRCodeCanvas
+                value={roomUrl}
+                size={220}
+                level={"H"}
+              />
+            ) : (
+              <Skeleton className="h-[220px] w-[220px]" />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
-
-    
