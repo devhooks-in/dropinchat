@@ -295,6 +295,30 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     });
 
     return () => {
+      // Stop any active microphone stream
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
+      }
+      if (scriptProcessorRef.current) {
+        scriptProcessorRef.current.disconnect();
+        scriptProcessorRef.current = null;
+      }
+      if (audioSourceRef.current) {
+        audioSourceRef.current.disconnect();
+        audioSourceRef.current = null;
+      }
+
+      // Stop audio playback and clear queue
+      audioQueueRef.current = [];
+      isPlayingRef.current = false;
+      
+      // Close the audio context
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.close().catch(e => console.error("Error closing audio context", e));
+          audioContextRef.current = null;
+      }
+      
       socket.disconnect();
     };
   }, [router, toast, roomId]);
@@ -542,7 +566,7 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
         setIsConnectingMic(true);
         try {
             if (!audioContextRef.current) {
-                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ latencyHint: 'interactive', sampleRate: 24000 });
             }
             if (audioContextRef.current.state === 'suspended') {
                 await audioContextRef.current.resume();
