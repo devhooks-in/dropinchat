@@ -18,6 +18,7 @@ export default function ScanPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isNavigating = useRef(false);
 
   useEffect(() => {
     const storedName = localStorage.getItem('dropinchat-username');
@@ -39,24 +40,24 @@ export default function ScanPage() {
     const scanner = scannerRef.current;
 
     const successCallback = (decodedText: string) => {
-        if(scanner.isScanning) {
+        if(scanner.isScanning && !isNavigating.current) {
+            isNavigating.current = true;
             setScanResult(decodedText);
-            scanner.stop().then(() => {
-                const match = decodedText.match(/\/chat\/([a-zA-Z0-9]+)/);
-                if (match && match[1]) {
+
+            const match = decodedText.match(/\/chat\/([a-zA-Z0-9]+)/);
+            if (match && match[1]) {
                 const roomId = match[1];
                 router.push(`/chat/${roomId}`);
-                } else {
+            } else {
                 setError('Invalid QR code. Please scan a valid DropInChat room QR code.');
                 toast({
                     title: 'Invalid QR Code',
                     description: 'This QR code does not link to a valid chat room.',
                     variant: 'destructive',
                 });
-                }
-            }).catch(err => {
-                console.error("Failed to stop scanner", err);
-            });
+                isNavigating.current = false;
+                setScanResult(null);
+            }
         }
     };
 
@@ -80,12 +81,14 @@ export default function ScanPage() {
       rememberLastUsedCamera: true,
     };
 
-    scanner.start({ facingMode: 'environment' }, config, successCallback, errorCallback)
-      .then(() => setIsLoading(false))
-      .catch((err) => {
-          setError('Could not start camera. Please ensure it is not in use and permissions are granted.');
-          setIsLoading(false);
-      });
+    if (!scanner.isScanning) {
+        scanner.start({ facingMode: 'environment' }, config, successCallback, errorCallback)
+          .then(() => setIsLoading(false))
+          .catch((err) => {
+              setError('Could not start camera. Please ensure it is not in use and permissions are granted.');
+              setIsLoading(false);
+          });
+    }
 
     return () => {
       if (scannerRef.current && scannerRef.current.isScanning) {
