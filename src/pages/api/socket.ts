@@ -61,24 +61,27 @@ export default function socketHandler(req: NextApiRequest, res: NextApiResponseW
   io.on('connection', socket => {
     let currentRoomId: string | null = null;
 
-    socket.on('join-room', (roomId: string, roomName: string | null, username: string, callback?: (response: { success: boolean; error?: string; roomState?: any }) => void) => {
+    socket.on('join-room', (data: { roomId: string, roomName: string | null, username: string, isCreating?: boolean }, callback?: (response: { success: boolean; error?: string; roomState?: any }) => void) => {
+      const { roomId, roomName, username, isCreating } = data;
+      
       if (!username) {
         if (callback) callback({ success: false, error: 'Username is required.' });
         return;
       }
       
-      const isCreationAttempt = roomName && roomName.trim().length > 0;
+      const roomExists = rooms.has(roomId);
 
-      if (!rooms.has(roomId)) {
-          if (isCreationAttempt) {
-              // This is a valid creation of a new room.
-              rooms.set(roomId, { name: roomName!, users: new Map(), messages: [], creatorId: socket.id });
-          } else {
-              // This is an attempt to join a non-existent room. Reject it.
-              if (callback) callback({ success: false, error: 'Room not found' });
-              return;
-          }
+      if (!roomExists) {
+        if (isCreating && roomName && roomName.trim().length > 0) {
+          // This is a valid creation of a new room.
+          rooms.set(roomId, { name: roomName, users: new Map(), messages: [], creatorId: socket.id });
+        } else {
+          // Attempting to join a non-existent room, or invalid creation attempt.
+          if (callback) callback({ success: false, error: 'Room not found' });
+          return;
+        }
       }
+      // If room exists, we just let the user join. The isCreating flag is ignored.
 
       currentRoomId = roomId;
       socket.join(roomId);

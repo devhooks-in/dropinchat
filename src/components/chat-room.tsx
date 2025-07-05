@@ -65,7 +65,7 @@ const linkify = (text: string) => {
   });
 };
 
-export default function ChatRoom({ roomId, roomName }: { roomId: string, roomName?: string }) {
+export default function ChatRoom({ roomId, roomName, isCreating }: { roomId: string, roomName?: string, isCreating?: boolean }) {
   const router = useRouter();
   const { toast } = useToast();
   const [username, setUsername] = useState<string | null>(null);
@@ -234,7 +234,12 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
     const socket = socketRef.current;
     if (socket && username && !hasJoined.current) {
       hasJoined.current = true;
-      socket.emit('join-room', roomId, roomName, username, (response: { success: boolean, roomState?: any, error?: string }) => {
+      socket.emit('join-room', {
+        roomId, 
+        roomName, 
+        username,
+        isCreating: !!isCreating
+      }, (response: { success: boolean, roomState?: any, error?: string }) => {
         if (response.success) {
             const data = response.roomState;
             setMessages(data.messages);
@@ -249,7 +254,7 @@ export default function ChatRoom({ roomId, roomName }: { roomId: string, roomNam
         }
       });
     }
-  }, [roomId, username, roomName, scrollToBottom]);
+  }, [roomId, username, roomName, isCreating, scrollToBottom]);
   
   useEffect(() => {
     scrollToBottom();
