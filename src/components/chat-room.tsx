@@ -140,7 +140,7 @@ export default function ChatRoom({ roomId, roomName, isCreating }: { roomId: str
     if (typeof navigator !== 'undefined' && navigator.share) {
       setCanShare(true);
     }
-    setRoomUrl(window.location.href);
+    setRoomUrl(window.location.href.split('?')[0]);
   }, []);
 
   useEffect(() => {
@@ -248,6 +248,10 @@ export default function ChatRoom({ roomId, roomName, isCreating }: { roomId: str
             setCurrentRoomName(data.roomName);
             setIsLoading(false);
             scrollToBottom();
+            if (isCreating) {
+              router.replace(`/chat/${roomId}`, { scroll: false });
+              setRoomUrl(window.location.origin + `/chat/${roomId}`);
+            }
         } else {
             toast({
               title: "Room Not Found",
@@ -290,7 +294,7 @@ export default function ChatRoom({ roomId, roomName, isCreating }: { roomId: str
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
+    navigator.clipboard.writeText(roomUrl);
     toast({
       title: "Link Copied!",
       description: "The room link has been copied to your clipboard.",
@@ -310,8 +314,8 @@ export default function ChatRoom({ roomId, roomName, isCreating }: { roomId: str
         try {
             await navigator.share({
                 title: `Join: ${currentRoomName}`,
-                text: `Join me in the chat room "${currentRoomName}": ${window.location.href}`,
-                url: window.location.href,
+                text: `Join me in the chat room "${currentRoomName}": ${roomUrl}`,
+                url: roomUrl,
             });
         } catch (error) {
             if ((error as DOMException)?.name === 'AbortError') {
