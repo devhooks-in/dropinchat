@@ -119,12 +119,9 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             return;
         }
     }
-    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-      audioContextRef.current.resume();
-    }
     
     const audioContext = audioContextRef.current;
-    if (!audioContext) return;
+    if (!audioContext || audioContext.state !== 'running') return;
 
     try {
       const oscillator = audioContext.createOscillator();
@@ -154,20 +151,15 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     }, 100);
   }, []);
 
-  const playQueue = useCallback(async () => {
+  const playQueue = useCallback(() => {
     const audioContext = audioContextRef.current;
     if (audioContext?.state === 'suspended') {
-        try {
-            await audioContext.resume();
-        } catch (e) {
-            console.error('Failed to resume audio context', e);
-            toast({
-              title: "Audio Playback Blocked",
-              description: "Click anywhere on the page to enable audio.",
-              variant: "destructive"
-            });
-            return;
-        }
+      toast({
+        title: "Audio Paused",
+        description: "Click anywhere on the page to enable audio playback.",
+        variant: "default",
+      });
+      return;
     }
     
     if (isPlayingRef.current || audioQueueRef.current.length === 0 || isMuted || !speakerId) {
@@ -222,6 +214,23 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             console.error("Web Audio API is not supported in this browser");
         }
     }
+  }, []);
+
+  // Effect to handle browser autoplay policies
+  useEffect(() => {
+    const resumeAudioContext = () => {
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume().catch(e => console.error("Failed to resume audio context on user gesture", e));
+      }
+    };
+
+    document.addEventListener('click', resumeAudioContext);
+    document.addEventListener('touchstart', resumeAudioContext, { passive: true });
+
+    return () => {
+      document.removeEventListener('click', resumeAudioContext);
+      document.removeEventListener('touchstart', resumeAudioContext);
+    };
   }, []);
 
   // Main socket connection and static listeners
@@ -282,13 +291,9 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     if (!socket) return;
 
     const handleSpeakerUpdate = (newSpeakerId: string | null) => {
-        if (socket.id !== newSpeakerId) {
-            setSpeakerId(newSpeakerId);
-            if (newSpeakerId) {
-                playQueue();
-            }
-        } else {
-            setSpeakerId(newSpeakerId);
+        setSpeakerId(newSpeakerId);
+        if (newSpeakerId && socket.id !== newSpeakerId) {
+            playQueue();
         }
     };
 
@@ -548,6 +553,13 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
             
             source.connect(processor);
             
+            // To prevent echo, the processor should not be connected to the destination.
+            // However, to ensure the onaudioprocess event fires, we connect it to a muted GainNode.
+            const gainNode = audioContext.createGain();
+            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            processor.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
             socketRef.current?.emit('start-speaking', roomId);
             isSpeakingRef.current = true;
             setIsSpeaking(true);
@@ -946,5 +958,3 @@ export default function ChatRoom({ roomId }: { roomId: string }) {
     </div>
   );
 }
-
-    
